@@ -37,16 +37,16 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 border-r border-border bg-card/60 backdrop-blur-md flex flex-col justify-between hidden md:flex min-h-screen">
+    <aside className="w-64 border-r border-border bg-white flex flex-col justify-between hidden md:flex min-h-screen">
       <div>
         {/* Brand Logo */}
         <div className="h-16 px-6 border-b border-border flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center font-bold text-white shadow-lg shadow-primary/25">
-            CF
+          <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center font-bold text-white shadow-sm">
+            S
           </div>
           <div>
-            <span className="font-bold text-base bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-              CreatorFlow AI
+            <span className="font-semibold text-base text-slate-900">
+              Sabd Studio
             </span>
             <span className="block text-[10px] text-muted-foreground font-mono">Pipeline v1.0</span>
           </div>
@@ -63,11 +63,11 @@ export default function Sidebar() {
                 href={item.href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                   isActive
-                    ? 'bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
+                    ? 'bg-blue-50 text-primary font-semibold'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-slate-50'
                 }`}
               >
-                <Icon className={`h-4 w-4 ${isActive ? 'text-primary-foreground' : 'text-muted-foreground'}`} />
+                <Icon className={`h-4 w-4 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
                 {item.name}
               </Link>
             );
@@ -78,8 +78,8 @@ export default function Sidebar() {
       {/* Demo Status Footer */}
       <div className="p-4 m-4 border border-border/80 rounded-xl bg-secondary/30">
         <div className="flex items-center justify-between text-xs mb-1">
-          <span className="font-semibold text-emerald-400 flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="font-semibold text-primary flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-primary" />
             Engine Active
           </span>
           <span className="text-muted-foreground text-[10px] bg-secondary px-1.5 py-0.5 rounded">Demo Ready</span>

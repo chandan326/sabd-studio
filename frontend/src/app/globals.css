@@ -4,24 +4,24 @@
 
 @layer base {
   :root {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 15%;
-    --card-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 22%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 20%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 199 89% 48%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 24%;
-    --input: 217 33% 24%;
-    --ring: 224.3 76.3% 48%;
-    --radius: 0.75rem;
+    --background: 210 20% 98%;
+    --foreground: 220 18% 18%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 18% 18%;
+    --primary: 217 89% 51%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214 42% 95%;
+    --secondary-foreground: 217 70% 35%;
+    --muted: 210 25% 96%;
+    --muted-foreground: 215 13% 43%;
+    --accent: 217 89% 51%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 24% 89%;
+    --input: 214 24% 86%;
+    --ring: 217 89% 51%;
+    --radius: 0.65rem;
   }
 
   .light {
@@ -47,7 +47,11 @@
 
 body {
   @apply bg-background text-foreground antialiased min-h-screen font-sans;
+  background-image: linear-gradient(to bottom, rgba(26,115,232,.035), transparent 260px);
 }
+
+button, a { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2; }
+button:disabled { @apply cursor-not-allowed opacity-60; }
 
 /* Custom scrollbars */
 ::-webkit-scrollbar {

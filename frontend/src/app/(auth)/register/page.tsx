@@ -42,11 +42,11 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
-          <div className="inline-flex h-10 w-10 rounded-xl bg-gradient-to-tr from-primary to-accent items-center justify-center font-bold text-white shadow-lg shadow-primary/25 mb-2">
-            CF
+          <div className="inline-flex h-10 w-10 rounded-lg bg-primary items-center justify-center font-bold text-white shadow-sm mb-2">
+            S
           </div>
           <h1 className="text-2xl font-bold">Create Account</h1>
-          <p className="text-xs text-muted-foreground">Start building your AI content pipeline in 30 seconds</p>
+          <p className="text-xs text-muted-foreground">Start building your Sabd Studio content pipeline</p>
         </div>
 
         {error && (
@@ -76,7 +76,7 @@ export default function RegisterPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="you@creatorflow.ai"
+              placeholder="you@example.com"
               className="w-full bg-secondary/50 border border-border rounded-lg px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>

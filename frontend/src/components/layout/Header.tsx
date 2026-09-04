@@ -3,31 +3,19 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell, Plus, Sun, Moon, User as UserIcon, LogOut, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Bell, Plus, LogOut, CheckCircle2 } from 'lucide-react';
 import { api, clearAuthToken } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 
 export default function Header() {
   const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
-  const [isDark, setIsDark] = useState(true);
 
   const { data: notifications = [] } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => api.getNotifications(),
     refetchInterval: 10000,
   });
-
-  const toggleTheme = () => {
-    setIsDark(!isDark);
-    if (isDark) {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
-    } else {
-      document.documentElement.classList.remove('light');
-      document.documentElement.classList.add('dark');
-    }
-  };
 
   const handleLogout = async () => {
     try {
@@ -42,7 +30,7 @@ export default function Header() {
   const unreadCount = notifications.filter((n: any) => !n.read).length;
 
   return (
-    <header className="h-16 border-b border-border bg-card/40 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30">
+    <header className="h-16 border-b border-border bg-white/95 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30">
       {/* Workspace Context Switcher */}
       <div className="flex items-center gap-3">
         <div className="bg-secondary/80 border border-border px-3 py-1.5 rounded-lg flex items-center gap-2 text-sm font-medium">
@@ -61,15 +49,6 @@ export default function Header() {
           <Plus className="h-4 w-4" />
           New Campaign
         </Link>
-
-        {/* Theme Switcher */}
-        <button
-          onClick={toggleTheme}
-          className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-all"
-          title="Toggle Theme"
-        >
-          {isDark ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-indigo-500" />}
-        </button>
 
         {/* Notification Bell */}
         <div className="relative">

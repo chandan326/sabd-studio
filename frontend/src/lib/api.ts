@@ -1,4 +1,7 @@
+import { demoApiFetch, demoExport } from './demo-api';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+const DEMO_FALLBACK = process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE !== 'false';
 
 export function getAuthToken(): string | null {
   if (typeof window !== 'undefined') {
@@ -47,7 +50,10 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestInit =
 
     return data.data;
   } catch (err: any) {
-    console.error(`API Fetch Error [${endpoint}]:`, err);
+    if (DEMO_FALLBACK && !endpoint.startsWith('http')) {
+      console.warn(`Live API unavailable for ${endpoint}; using local demo data.`);
+      return demoApiFetch(endpoint, options) as Promise<T>;
+    }
     throw err;
   }
 }
@@ -77,14 +83,15 @@ export const api = {
     const formData = new FormData();
     formData.append('file', file);
     const token = getAuthToken();
-    const res = await fetch(`${API_BASE_URL}/campaigns/${campaignId}/upload`, {
-      method: 'POST',
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-      body: formData
-    });
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.error?.message || 'File upload failed');
-    return data.data;
+    try {
+      const res = await fetch(`${API_BASE_URL}/campaigns/${campaignId}/upload`, { method: 'POST', headers: token ? { 'Authorization': `Bearer ${token}` } : {}, body: formData });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error?.message || 'File upload failed');
+      return data.data;
+    } catch (error) {
+      if (DEMO_FALLBACK) return { campaign_id: campaignId, filename: file.name, status: 'ready' };
+      throw error;
+    }
   },
   processCampaign: (id: string) => apiFetch(`/campaigns/${id}/process`, { method: 'POST' }),
   getCampaignStatus: (id: string) => apiFetch(`/campaigns/${id}/status`),
@@ -100,7 +107,10 @@ export const api = {
       },
       body: JSON.stringify({ format })
     });
-    if (!res.ok) throw new Error('Export download failed');
+    if (!res.ok) {
+      if (DEMO_FALLBACK) return demoExport(campaignId);
+      throw new Error('Export download failed');
+    }
     return await res.blob();
   },
 

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, setAuthToken } from '@/lib/api';
-import { Sparkles, ArrowRight, AlertCircle } from 'lucide-react';
+import { ArrowRight, AlertCircle } from 'lucide-react';
 import GoogleSignInButton from '@/components/GoogleSignInButton';
 
 export default function LoginPage() {
@@ -41,17 +41,17 @@ export default function LoginPage() {
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
-          <div className="inline-flex h-10 w-10 rounded-xl bg-gradient-to-tr from-primary to-accent items-center justify-center font-bold text-white shadow-lg shadow-primary/25 mb-2">
-            CF
+          <div className="inline-flex h-10 w-10 rounded-lg bg-primary items-center justify-center font-bold text-white shadow-sm mb-2">
+            S
           </div>
           <h1 className="text-2xl font-bold">Welcome Back</h1>
-          <p className="text-xs text-muted-foreground">Sign in to your CreatorFlow AI Workspace</p>
+          <p className="text-xs text-muted-foreground">Sign in to your Sabd Studio workspace</p>
         </div>
 
         {/* Judge Demo Quick Action */}
         <div className="p-3 border border-primary/30 rounded-xl bg-primary/10 flex items-center justify-between text-xs">
           <div>
-            <span className="font-semibold text-primary block">Hackathon Judge Credentials</span>
+            <span className="font-semibold text-primary block">Instant demo access</span>
             <span className="text-[11px] text-muted-foreground">demo@creatorflow.ai / password123</span>
           </div>
           <button
