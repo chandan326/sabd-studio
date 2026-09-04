@@ -2,12 +2,13 @@ import os
 from pathlib import Path
 from datetime import timedelta
 import dotenv
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 dotenv.load_dotenv(os.path.join(BASE_DIR.parent, '.env'))
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-creatorflow-ai-2026-super-secret-key')
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-local-development-only')
 
 DEBUG = os.getenv('DEBUG', 'true').lower() == 'true'
 
@@ -75,10 +76,12 @@ WSGI_APPLICATION = 'creatorflow.wsgi.application'
 ASGI_APPLICATION = 'creatorflow.asgi.application'
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=int(os.getenv('DB_CONN_MAX_AGE', '60')),
+        conn_health_checks=True,
+        ssl_require=os.getenv('DB_SSL_REQUIRE', 'false').lower() == 'true',
+    )
 }
 
 AUTH_USER_MODEL = 'accounts.User'
@@ -107,6 +110,9 @@ CORS_ALLOWED_ORIGINS = [
     o.strip() for o in os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000').split(',') if o.strip()
 ]
 CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:3000').split(',') if o.strip()
+]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -137,3 +143,10 @@ AI_PROVIDER = os.getenv('AI_PROVIDER', 'deterministic')
 AI_API_KEY = os.getenv('AI_API_KEY', '')
 AI_MODEL = os.getenv('AI_MODEL', 'gpt-4o-mini')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
+MONGODB_URI = os.getenv('MONGODB_URI', '')
+MONGODB_DATABASE = os.getenv('MONGODB_DATABASE', 'sabd_studio')
+CLOUDINARY_CLOUD_NAME = os.getenv('CLOUDINARY_CLOUD_NAME', '')
+CLOUDINARY_API_KEY = os.getenv('CLOUDINARY_API_KEY', '')
+CLOUDINARY_API_SECRET = os.getenv('CLOUDINARY_API_SECRET', '')
+CLOUDINARY_FOLDER = os.getenv('CLOUDINARY_FOLDER', 'sabd-studio')

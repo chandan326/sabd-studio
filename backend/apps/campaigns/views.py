@@ -12,6 +12,7 @@ from apps.workspaces.models import WorkspaceMember
 from apps.transcripts.models import Transcript
 from apps.assets.models import GeneratedAsset
 from apps.campaigns.services import run_campaign_pipeline
+from apps.integrations.services import CloudinaryStorageService, MongoService
 
 class CampaignListCreateView(APIView):
     def get(self, request):
@@ -204,10 +205,12 @@ class CampaignUploadView(APIView):
         else:
             extracted_text = f"Audio/Video content source: {uploaded_file.name}"
 
+        cloud_upload = CloudinaryStorageService.upload(uploaded_file, campaign.id)
+        storage_key = cloud_upload['storage_key'] if cloud_upload else f"uploads/{campaign.id}/{uploaded_file.name}"
         asset = SourceAsset.objects.create(
             campaign=campaign,
             original_filename=uploaded_file.name,
-            storage_key=f"uploads/{campaign.id}/{uploaded_file.name}",
+            storage_key=storage_key,
             mime_type=uploaded_file.content_type or 'application/octet-stream',
             file_size=uploaded_file.size,
             processing_status='completed'
@@ -217,13 +220,21 @@ class CampaignUploadView(APIView):
             campaign.source_text = extracted_text
             campaign.save()
 
+        MongoService.record_event('upload_events', {
+            'campaign_id': str(campaign.id), 'user_id': str(request.user.id),
+            'filename': uploaded_file.name, 'mime_type': uploaded_file.content_type,
+            'file_size': uploaded_file.size, 'storage_provider': 'cloudinary' if cloud_upload else 'local',
+        })
+
         return Response({
             "success": True,
             "data": {
                 "id": str(asset.id),
                 "filename": asset.original_filename,
                 "file_size": asset.file_size,
-                "extracted_text_preview": extracted_text[:200]
+                "extracted_text_preview": extracted_text[:200],
+                "url": cloud_upload.get('secure_url') if cloud_upload else None,
+                "storage_provider": "cloudinary" if cloud_upload else "local"
             },
             "message": "File uploaded and processed",
             "request_id": str(uuid.uuid4())

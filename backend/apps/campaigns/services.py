@@ -10,6 +10,7 @@ from apps.assets.models import GeneratedAsset, AssetVersion
 from apps.seo.services import SEOService
 from apps.notifications.models import Notification
 from apps.audit.models import AuditLog, APIUsage
+from apps.integrations.services import MongoService
 
 logger = logging.getLogger(__name__)
 
@@ -148,5 +149,12 @@ def run_campaign_pipeline(campaign_id):
         duration_ms=450,
         success=True
     )
+
+    MongoService.record_event('ai_generation_events', {
+        'campaign_id': str(campaign.id), 'workspace_id': str(campaign.workspace_id),
+        'provider': getattr(settings, 'AI_PROVIDER', 'deterministic'),
+        'platforms': target_platforms, 'assets_count': len(generated_pack.get('assets', [])),
+        'status': 'completed', 'created_at': timezone.now(),
+    })
 
     return True

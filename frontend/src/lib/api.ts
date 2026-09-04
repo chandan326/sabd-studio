@@ -56,6 +56,7 @@ export const api = {
   // Auth
   register: (payload: any) => apiFetch('/auth/register', { method: 'POST', body: JSON.stringify(payload) }),
   login: (payload: any) => apiFetch('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
+  googleLogin: (credential: string) => apiFetch('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) }),
   logout: () => apiFetch('/auth/logout', { method: 'POST' }),
   getMe: () => apiFetch('/users/me'),
 

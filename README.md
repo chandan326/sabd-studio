@@ -19,6 +19,8 @@ Creators repeatedly rewrite the same source material for every platform. Sabd St
 - Eight-check SEO scoring and thumbnail prompt studio
 - Content calendar, scheduling, analytics, recommendations, and audit logs
 - Provider-ready integrations and a deterministic local demo generator
+- Google account sign-in with server-side ID-token verification
+- Cloudinary media uploads and optional MongoDB event storage
 - OpenAPI/Swagger documentation and Docker configuration
 
 ## Architecture
@@ -39,6 +41,8 @@ flowchart TD
 | Frontend | Next.js 14, React 18, TypeScript, Tailwind CSS, TanStack Query, Recharts |
 | Backend | Python 3.12+, Django 5, Django REST Framework, Celery |
 | Data | SQLite development fallback, PostgreSQL and Redis container definitions |
+| Flexible events | MongoDB Atlas through PyMongo |
+| Media storage | Cloudinary with a local-development fallback |
 | AI and media | OpenAI/Gemini hooks, Pillow, pdfplumber, python-docx, ReportLab |
 | Delivery | Docker and Docker Compose |
 
@@ -178,6 +182,14 @@ The Compose file defines frontend, backend, worker, PostgreSQL, and Redis servic
 - Follow current provider terms, OAuth scopes, and rate limits before enabling publication.
 
 ## Current limitations
+
+### Integration design
+
+- The relational database remains the system of record for users, permissions, workspaces, campaigns, and schedules.
+- MongoDB stores flexible upload and AI-generation event documents when `MONGODB_URI` is configured.
+- Cloudinary stores media when all Cloudinary credentials are configured; local development falls back safely.
+- Google Identity credentials are verified by Django against `GOOGLE_CLIENT_ID` before app tokens are issued.
+- OpenAI or Gemini is selected through `AI_PROVIDER`; otherwise the labelled deterministic demo provider is used.
 
 - External publishing and live analytics require approved platform credentials.
 - The deterministic generator and sample analytics are demonstration fallbacks and must remain visibly labelled.

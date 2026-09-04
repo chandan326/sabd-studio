@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, setAuthToken } from '@/lib/api';
 import { Sparkles, ArrowRight, AlertCircle } from 'lucide-react';
+import GoogleSignInButton from '@/components/GoogleSignInButton';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -100,6 +101,8 @@ export default function LoginPage() {
             {loading ? 'Signing In...' : 'Sign In'} <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </form>
+
+        <GoogleSignInButton onSuccess={() => router.push('/dashboard')} onError={setError} />
 
         <p className="text-center text-xs text-muted-foreground">
           Don't have an account?{' '}

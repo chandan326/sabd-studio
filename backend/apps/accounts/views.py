@@ -1,5 +1,6 @@
 import jwt
 import uuid
+from django.db import transaction
 from django.conf import settings
 from rest_framework import status, permissions
 from rest_framework.views import APIView
@@ -7,6 +8,75 @@ from rest_framework.response import Response
 from apps.accounts.models import User
 from apps.accounts.authentication import generate_tokens_for_user
 from apps.workspaces.models import Workspace, WorkspaceMember
+
+
+def _auth_response(user, message="Login successful"):
+    workspace, _ = Workspace.objects.get_or_create(
+        owner=user,
+        defaults={"name": f"{user.full_name}'s Workspace", "slug": f"ws-{user.id.hex[:8]}"},
+    )
+    member, _ = WorkspaceMember.objects.get_or_create(
+        workspace=workspace, user=user, defaults={"role": "Owner", "status": "Active"}
+    )
+    access_token, refresh_token = generate_tokens_for_user(user)
+    response = Response({
+        "success": True,
+        "data": {
+            "user": {"id": str(user.id), "email": user.email, "full_name": user.full_name,
+                     "avatar": user.avatar, "email_verified": user.email_verified},
+            "workspace": {"id": str(workspace.id), "name": workspace.name,
+                          "slug": workspace.slug, "role": member.role},
+            "access_token": access_token,
+        },
+        "message": message,
+        "request_id": str(uuid.uuid4()),
+    })
+    cookie_secure = not settings.DEBUG
+    response.set_cookie('access_token', access_token, httponly=True, secure=cookie_secure, samesite='Lax')
+    response.set_cookie('refresh_token', refresh_token, httponly=True, secure=cookie_secure, samesite='Lax')
+    return response
+
+
+class GoogleLoginView(APIView):
+    """Verify a Google Identity Services credential and issue app JWTs."""
+
+    permission_classes = [permissions.AllowAny]
+
+    @transaction.atomic
+    def post(self, request):
+        credential = request.data.get('credential', '')
+        if not credential or not settings.GOOGLE_CLIENT_ID:
+            return Response({"success": False, "error": {"code": "GOOGLE_AUTH_UNAVAILABLE",
+                "message": "Google authentication is not configured.", "fields": {}},
+                "request_id": str(uuid.uuid4())}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        try:
+            from google.auth.transport import requests as google_requests
+            from google.oauth2 import id_token
+            claims = id_token.verify_oauth2_token(
+                credential, google_requests.Request(), settings.GOOGLE_CLIENT_ID
+            )
+            if not claims.get('email_verified'):
+                raise ValueError('Email is not verified')
+            email = claims['email'].strip().lower()
+            user, _ = User.objects.get_or_create(email=email, defaults={
+                'full_name': claims.get('name') or email.split('@')[0],
+                'avatar': claims.get('picture', ''),
+                'email_verified': True,
+            })
+            changed = False
+            if not user.email_verified:
+                user.email_verified = True
+                changed = True
+            if claims.get('picture') and not user.avatar:
+                user.avatar = claims['picture']
+                changed = True
+            if changed:
+                user.save(update_fields=['email_verified', 'avatar', 'updated_at'])
+            return _auth_response(user, "Google login successful")
+        except (ValueError, KeyError):
+            return Response({"success": False, "error": {"code": "INVALID_GOOGLE_TOKEN",
+                "message": "Google sign-in could not be verified.", "fields": {}},
+                "request_id": str(uuid.uuid4())}, status=status.HTTP_401_UNAUTHORIZED)
 
 class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
