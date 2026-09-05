@@ -22,6 +22,8 @@ Creators repeatedly rewrite the same source material for every platform. Sabd St
 - Google account sign-in with server-side ID-token verification
 - Cloudinary media uploads and optional MongoDB event storage
 - Media editor with local preview, trimming, aspect-ratio reframing, filters, caption overlays, mute/speed controls, and non-destructive render recipes
+- Browser-native WebM rendering with live progress and download, plus optional Cloudinary persistence when a campaign is selected
+- Grouped, collapsible dashboard navigation and a side-by-side editor with sticky bottom output controls
 - Integration Hub showing the exact Vercel variables required for AI, transcription, media, data, email, and social publishing providers
 - OpenAPI/Swagger documentation and Docker configuration
 
