@@ -52,6 +52,7 @@ function seedState(): DemoState {
       ['linkedin', 'Publishing', ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET']], ['twitter', 'Publishing', ['TWITTER_CLIENT_ID', 'TWITTER_CLIENT_SECRET']],
       ['cloudinary', 'Media', ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET']], ['mongodb', 'Data', ['MONGODB_URI']],
       ['openai', 'AI', ['AI_API_KEY']], ['gemini', 'AI', ['GEMINI_API_KEY']], ['whisper', 'Transcription', ['TRANSCRIPTION_API_KEY']],
+      ['elevenlabs', 'Voice', ['ELEVENLABS_API_KEY', 'ELEVENLABS_VOICE_ID']],
       ['gmail', 'Email', ['EMAIL_HOST_USER', 'EMAIL_HOST_PASSWORD']],
     ].map(([provider, category, required_env]) => ({ id: `integration_${provider}`, provider, category, required_env, configured: false, display_name: `${String(provider)[0].toUpperCase()}${String(provider).slice(1)} integration`, status: 'disconnected' })),
     brand: { brand_name: 'Sabd Studio', voice_tone: 'clear, practical, confident', target_audience: 'creators and marketing teams', primary_color: '#1a73e8', keywords: 'creator workflow, content automation, publishing' },

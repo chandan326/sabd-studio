@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Sparkles, CheckCircle2, Copy, Download, RefreshCw, Save, History, Search, ArrowLeft, ThumbsUp, ThumbsDown } from 'lucide-react';
+import ExportMenu from '@/components/ExportMenu';
+import { Copy, RefreshCw, Save, History, Search, ArrowLeft, ThumbsUp, ThumbsDown } from 'lucide-react';
 
 export default function SingleAssetStudioEditorPage() {
   const params = useParams();
@@ -68,15 +69,6 @@ export default function SingleAssetStudioEditorPage() {
     navigator.clipboard.writeText(`${title}\n\n${content}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleDownload = () => {
-    const element = document.createElement('a');
-    const file = new Blob([`${title}\n\n${content}`], { type: 'text/plain' });
-    element.href = URL.createObjectURL(file);
-    element.download = `${asset.platform}_${assetId.slice(0, 6)}.txt`;
-    document.body.appendChild(element);
-    element.click();
   };
 
   if (isLoading) {
@@ -180,12 +172,7 @@ export default function SingleAssetStudioEditorPage() {
                 >
                   <Copy className="h-3.5 w-3.5" /> {copied ? 'Copied!' : 'Copy Copy'}
                 </button>
-                <button
-                  onClick={handleDownload}
-                  className="bg-secondary border border-border hover:bg-secondary/80 text-foreground text-xs px-3 py-2 rounded-lg flex items-center gap-1.5"
-                >
-                  <Download className="h-3.5 w-3.5" /> Download
-                </button>
+                <ExportMenu title={title} content={content} metadata={{ platform: asset.platform, campaign: asset.campaign_name, seo_score: seoAnalysis.overall_score }} />
               </div>
             </div>
           </div>

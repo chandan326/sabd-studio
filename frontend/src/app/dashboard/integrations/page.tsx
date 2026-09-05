@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Check, Clipboard, Cloud, Database, Mail, PlugZap, Share2, Sparkles, Subtitles } from 'lucide-react';
 
-const iconMap: Record<string, any> = { Publishing: Share2, Media: Cloud, Data: Database, AI: Sparkles, Transcription: Subtitles, Email: Mail };
+const iconMap: Record<string, any> = { Publishing: Share2, Media: Cloud, Data: Database, AI: Sparkles, Transcription: Subtitles, Voice: Subtitles, Email: Mail };
 
 export default function IntegrationsPage() {
   const [message, setMessage] = useState('');

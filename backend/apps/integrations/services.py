@@ -1,6 +1,7 @@
 """External service adapters with safe, optional fallbacks."""
 
 import logging
+import io
 from functools import lru_cache
 
 from django.conf import settings
@@ -113,3 +114,34 @@ class CloudinaryStorageService:
             transformation=[transformation],
         )
         return url
+
+
+class VoiceoverService:
+    """Optional ElevenLabs adapter; browser speech remains the zero-config preview."""
+
+    @staticmethod
+    def configured():
+        return bool(settings.ELEVENLABS_API_KEY and settings.ELEVENLABS_VOICE_ID)
+
+    @classmethod
+    def generate(cls, text, campaign_id):
+        if not cls.configured() or not text.strip():
+            return None
+        import requests
+        import cloudinary
+        import cloudinary.uploader
+
+        response = requests.post(
+            f"https://api.elevenlabs.io/v1/text-to-speech/{settings.ELEVENLABS_VOICE_ID}",
+            headers={"xi-api-key": settings.ELEVENLABS_API_KEY, "Content-Type": "application/json", "Accept": "audio/mpeg"},
+            json={"text": text[:5000], "model_id": "eleven_multilingual_v2"},
+            timeout=45,
+        )
+        response.raise_for_status()
+        cloudinary.config(cloud_name=settings.CLOUDINARY_CLOUD_NAME, api_key=settings.CLOUDINARY_API_KEY, api_secret=settings.CLOUDINARY_API_SECRET, secure=True)
+        result = cloudinary.uploader.upload(
+            io.BytesIO(response.content), resource_type="video",
+            folder=f"{settings.CLOUDINARY_FOLDER}/campaigns/{campaign_id}/voiceovers",
+            format="mp3",
+        )
+        return result.get("secure_url")

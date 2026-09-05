@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { api } from '@/lib/api';
-import { Image as ImageIcon, Sparkles, Download, Layers } from 'lucide-react';
+import ExportMenu from '@/components/ExportMenu';
+import { Image as ImageIcon } from 'lucide-react';
 
 export default function ThumbnailStudioPage() {
   const [headline, setHeadline] = useState('AI CONTENT ENGINE BLUEPRINT');
@@ -105,6 +106,7 @@ export default function ThumbnailStudioPage() {
         <div className="lg:col-span-2 space-y-4">
           <div className="p-6 rounded-2xl border border-border bg-card shadow-xl space-y-4">
             <h3 className="font-bold text-sm">Visual Thumbnail Mockup Preview</h3>
+            <div className="flex justify-end"><ExportMenu title={headline || 'Sabd Studio Thumbnail'} content={`High-resolution ${aspectRatio} thumbnail · ${theme} theme · Sabd Studio`} metadata={{ aspect_ratio: aspectRatio, theme }} /></div>
 
             <div className={`w-full ${getAspectClass()} mx-auto rounded-2xl p-6 flex flex-col justify-between border-2 border-primary/40 shadow-2xl relative overflow-hidden transition-all ${
               theme === 'dark_neon'

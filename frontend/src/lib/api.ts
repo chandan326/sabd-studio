@@ -2,6 +2,7 @@ import { demoApiFetch, demoExport } from './demo-api';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 const DEMO_FALLBACK = process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE !== 'false';
+const HAS_LIVE_API = Boolean(process.env.NEXT_PUBLIC_API_URL);
 
 export function getAuthToken(): string | null {
   if (typeof window !== 'undefined') {
@@ -23,6 +24,9 @@ export function clearAuthToken() {
 }
 
 export async function apiFetch<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  if (DEMO_FALLBACK && !HAS_LIVE_API && !endpoint.startsWith('http')) {
+    return demoApiFetch(endpoint, options) as Promise<T>;
+  }
   const token = getAuthToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -84,6 +88,7 @@ export const api = {
     formData.append('file', file);
     const token = getAuthToken();
     try {
+      if (DEMO_FALLBACK && !HAS_LIVE_API) return { id: `demo_upload_${Date.now()}`, campaign_id: campaignId, filename: file.name, status: 'ready' };
       const res = await fetch(`${API_BASE_URL}/campaigns/${campaignId}/upload`, { method: 'POST', headers: token ? { 'Authorization': `Bearer ${token}` } : {}, body: formData });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error?.message || 'File upload failed');
@@ -98,6 +103,7 @@ export const api = {
   getTranscript: (campaignId: string) => apiFetch(`/campaigns/${campaignId}/transcript`),
   updateTranscript: (campaignId: string, payload: any) => apiFetch(`/campaigns/${campaignId}/transcript`, { method: 'PUT', body: JSON.stringify(payload) }),
   exportCampaignPackage: async (campaignId: string, format = 'zip') => {
+    if (DEMO_FALLBACK && !HAS_LIVE_API) return demoExport(campaignId);
     const token = getAuthToken();
     const res = await fetch(`${API_BASE_URL}/campaigns/${campaignId}/export`, {
       method: 'POST',

@@ -13,6 +13,7 @@ class PlatformIntegration(models.Model):
         ('openai', 'OpenAI'),
         ('gemini', 'Google Gemini'),
         ('whisper', 'Whisper'),
+        ('elevenlabs', 'ElevenLabs'),
         ('gmail', 'Gmail SMTP'),
     ]
 

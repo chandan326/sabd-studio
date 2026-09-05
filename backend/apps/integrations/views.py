@@ -16,6 +16,7 @@ PROVIDERS = {
     'openai': ('AI', ['AI_API_KEY']),
     'gemini': ('AI', ['GEMINI_API_KEY']),
     'whisper': ('Transcription', ['TRANSCRIPTION_API_KEY']),
+    'elevenlabs': ('Voice', ['ELEVENLABS_API_KEY', 'ELEVENLABS_VOICE_ID']),
     'gmail': ('Email', ['EMAIL_HOST_USER', 'EMAIL_HOST_PASSWORD']),
 }
 

@@ -12,7 +12,7 @@ from apps.workspaces.models import WorkspaceMember
 from apps.transcripts.models import Transcript
 from apps.assets.models import GeneratedAsset
 from apps.campaigns.services import run_campaign_pipeline
-from apps.integrations.services import CloudinaryStorageService, MongoService
+from apps.integrations.services import CloudinaryStorageService, MongoService, VoiceoverService
 
 class CampaignListCreateView(APIView):
     def get(self, request):
@@ -275,6 +275,13 @@ class CampaignMediaView(APIView):
             return Response({"success": False, "error": {"code": "VALIDATION_ERROR", "message": "Invalid trim range"}}, status=status.HTTP_400_BAD_REQUEST)
         edits["trim_start"], edits["trim_end"] = trim_start, trim_end
         render_url = CloudinaryStorageService.transformation_url(source.storage_key, edits)
+        voiceover_url = None
+        voiceover = edits.get("voiceover", {})
+        if voiceover.get("text") and VoiceoverService.configured() and CloudinaryStorageService.configured():
+            try:
+                voiceover_url = VoiceoverService.generate(voiceover["text"], campaign.id)
+            except Exception:
+                voiceover_url = None
         event_id = MongoService.record_event("media_edit_jobs", {
             "campaign_id": str(campaign.id), "source_asset_id": str(source.id),
             "user_id": str(request.user.id), "edits": edits,
@@ -283,7 +290,7 @@ class CampaignMediaView(APIView):
         return Response({"success": True, "data": {
             "id": event_id or str(uuid.uuid4()), "status": "ready" if render_url else "recipe_saved",
             "provider": "cloudinary" if render_url else "local_recipe",
-            "render_url": render_url, "edits": edits,
+            "render_url": render_url, "voiceover_url": voiceover_url, "edits": edits,
         }, "message": "Media edit prepared", "request_id": str(uuid.uuid4())})
 
 class CampaignProcessView(APIView):
