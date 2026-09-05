@@ -1,6 +1,6 @@
 import { demoApiFetch, demoExport } from './demo-api';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/$/, '');
 const DEMO_FALLBACK = process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE !== 'false';
 const HAS_LIVE_API = Boolean(process.env.NEXT_PUBLIC_API_URL);
 
@@ -48,7 +48,7 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestInit =
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok || data.success === false) {
-      const errorMsg = data.error?.message || `HTTP Error ${res.status}`;
+      const errorMsg = data.error?.message || data.detail || `API request failed (${res.status})`;
       throw new Error(errorMsg);
     }
 
