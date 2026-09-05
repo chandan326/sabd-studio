@@ -8,10 +8,52 @@ logger = logging.getLogger(__name__)
 
 class LLMProviderService:
     @staticmethod
+    def _generate_gemini_json(prompt, api_key):
+        """Generate strict JSON with Gemini's REST API and bounded latency."""
+        import requests
+
+        model = getattr(settings, 'GEMINI_MODEL', 'gemini-3.1-flash-lite')
+        response = requests.post(
+            f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
+            headers={'x-goog-api-key': api_key, 'Content-Type': 'application/json'},
+            json={
+                'contents': [{'role': 'user', 'parts': [{'text': prompt}]}],
+                'generationConfig': {
+                    'responseMimeType': 'application/json',
+                    'temperature': 0.25,
+                    'maxOutputTokens': 4096,
+                },
+            },
+            timeout=getattr(settings, 'GEMINI_TIMEOUT_SECONDS', 60),
+        )
+        response.raise_for_status()
+        payload = response.json()
+        parts = payload.get('candidates', [{}])[0].get('content', {}).get('parts', [])
+        text = ''.join(part.get('text', '') for part in parts).strip()
+        if not text:
+            raise ValueError('Gemini returned an empty response.')
+        return json.loads(text)
+
+    @staticmethod
     def analyse_highlights(transcript, duration=300, clip_type='shorts'):
         """Return ranked, bounded clip suggestions; use configured OpenAI or a safe fallback."""
         duration = max(15, min(int(duration or 300), 14400))
         target = {'shorts': 35, 'reel': 45, 'vlog': 120}.get(clip_type, 45)
+        gemini_key = getattr(settings, 'GEMINI_API_KEY', '')
+        if getattr(settings, 'AI_PROVIDER', '') == 'gemini' and gemini_key and transcript.strip():
+            try:
+                result = LLMProviderService._generate_gemini_json(
+                    f'''You are a professional short-form video editor. Return JSON with a highlights array.
+Select 3 engaging {clip_type} segments, each about {target} seconds, from a video lasting {duration} seconds.
+Each item must contain: start, end, score (0-100), title, hook, reason.
+Never exceed the video duration. Transcript:\n{transcript[:20000]}''',
+                    gemini_key,
+                )
+                if isinstance(result.get('highlights'), list):
+                    return result['highlights'][:6]
+            except Exception as exc:
+                logger.warning('Gemini highlight fallback: %s', exc)
+
         api_key = getattr(settings, 'AI_API_KEY', '')
         if getattr(settings, 'AI_PROVIDER', '') == 'openai' and api_key.startswith('sk-') and transcript.strip():
             try:
@@ -37,7 +79,17 @@ class LLMProviderService:
         Uses OpenAI or Gemini if configured, else falls back to Deterministic Generator.
         """
         ai_provider = getattr(settings, 'AI_PROVIDER', 'deterministic')
-        api_key = getattr(settings, 'AI_API_KEY', '') or getattr(settings, 'GEMINI_API_KEY', '')
+        api_key = getattr(settings, 'AI_API_KEY', '')
+
+        if ai_provider == 'gemini' and getattr(settings, 'GEMINI_API_KEY', ''):
+            try:
+                return LLMProviderService._generate_gemini(
+                    topic_or_text, target_platforms, brand_profile,
+                    getattr(settings, 'GEMINI_API_KEY', ''),
+                )
+            except Exception as e:
+                logger.error(f"Gemini generation error: {e}. Falling back to deterministic provider.")
+                return LLMProviderService._generate_deterministic(topic_or_text, target_platforms, brand_profile)
 
         if ai_provider == 'openai' and api_key and api_key.startswith('sk-'):
             try:
@@ -48,6 +100,20 @@ class LLMProviderService:
         
         # Default or fallback generator
         return LLMProviderService._generate_deterministic(topic_or_text, target_platforms, brand_profile)
+
+    @staticmethod
+    def _generate_gemini(topic_or_text, target_platforms, brand_profile, api_key):
+        brand_context = ''
+        if brand_profile:
+            brand_context = f'''Brand: {brand_profile.brand_name}\nDescription: {brand_profile.description}\nAudience: {brand_profile.audience}\nTone: {brand_profile.tone}\nPreferred terms: {brand_profile.preferred_terms}\nAvoided terms: {brand_profile.avoided_terms}'''
+        prompt = f'''You are Sabd Studio AI, a professional creator-workflow strategist.
+Create a useful content package for these platforms: {', '.join(target_platforms) or 'youtube, instagram'}.
+Brand context:\n{brand_context or 'Professional, clear, engaging and actionable.'}
+Input:\n{topic_or_text[:20000]}
+
+Return only JSON with this structure:
+{{"summary":"string","assets":[{{"platform":"string","asset_type":"string","title":"string","content":"string","metadata":{{"titles":["string"],"keywords":["string"],"tags":["string"],"timestamps":["string"],"pinned_comment":"string","thumbnail_prompts":["string"],"ctas":["string"],"short_ideas":["string"]}}}}]}}'''
+        return LLMProviderService._generate_gemini_json(prompt, api_key)
 
     @staticmethod
     def _generate_openai(topic_or_text, target_platforms, brand_profile, api_key):
