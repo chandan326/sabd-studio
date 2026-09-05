@@ -94,6 +94,14 @@ export async function demoApiFetch(endpoint: string, options: RequestInit = {}):
   if (path === '/brand-profile' && method === 'PUT') { state.brand = { ...state.brand, ...input }; saveState(state); return state.brand; }
 
   if (path === '/campaigns' && method === 'GET') return state.campaigns;
+  if (path === '/campaigns/highlights/analyse') {
+    const duration = Math.max(30, Number(input.duration) || 300); const size = input.clip_type === 'vlog' ? 120 : input.clip_type === 'reel' ? 45 : 35;
+    return { provider: input.transcript ? 'ai_demo' : 'timeline_estimator', highlights: [
+      { id: 'clip_1', start: Math.round(duration*.08), end: Math.min(duration, Math.round(duration*.08)+size), score: 94, title: 'Strong opening insight', hook: 'Start with the clearest promise', reason: 'High hook potential' },
+      { id: 'clip_2', start: Math.round(duration*.38), end: Math.min(duration, Math.round(duration*.38)+size), score: 89, title: 'Key explanation', hook: 'Lead with the main takeaway', reason: 'Dense, useful information' },
+      { id: 'clip_3', start: Math.round(duration*.68), end: Math.min(duration, Math.round(duration*.68)+size), score: 84, title: 'Memorable conclusion', hook: 'Close with the strongest lesson', reason: 'Strong standalone ending' },
+    ] };
+  }
   if (path === '/campaigns' && method === 'POST') {
     const id = uid('campaign');
     const name = input.name || input.title || 'Untitled Campaign';

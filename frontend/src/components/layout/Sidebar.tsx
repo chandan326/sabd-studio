@@ -18,10 +18,11 @@ import {
   Settings, 
   ShieldCheck 
   ,ChevronDown
+  ,WandSparkles
 } from 'lucide-react';
 
 const navGroups = [
-  { label: 'Create', items: [{ name: 'Campaigns', href: '/dashboard/campaigns', icon: Sparkles }, { name: 'Content Studio', href: '/dashboard/studio', icon: FileText }, { name: 'Media Editor', href: '/dashboard/media', icon: Clapperboard }, { name: 'Thumbnail Studio', href: '/dashboard/thumbnails', icon: ImageIcon }] },
+  { label: 'Create', items: [{ name: 'Campaigns', href: '/dashboard/campaigns', icon: Sparkles }, { name: 'Content Studio', href: '/dashboard/studio', icon: FileText }, { name: 'AI Clip Studio', href: '/dashboard/clips', icon: WandSparkles }, { name: 'Media Editor', href: '/dashboard/media', icon: Clapperboard }, { name: 'Thumbnail Studio', href: '/dashboard/thumbnails', icon: ImageIcon }] },
   { label: 'Publish & improve', items: [{ name: 'SEO Analyzer', href: '/dashboard/seo', icon: Search }, { name: 'Content Calendar', href: '/dashboard/calendar', icon: Calendar }, { name: 'Integrations', href: '/dashboard/integrations', icon: Share2 }, { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 }, { name: 'AI Advisor', href: '/dashboard/recommendations', icon: Lightbulb }] },
   { label: 'Workspace', items: [{ name: 'Brand Voice', href: '/dashboard/settings/brand', icon: Palette }, { name: 'Team & Workspace', href: '/dashboard/settings/team', icon: Settings }, { name: 'Audit Logs', href: '/dashboard/settings/audit', icon: ShieldCheck }] },
 ];

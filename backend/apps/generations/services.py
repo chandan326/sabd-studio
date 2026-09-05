@@ -8,6 +8,29 @@ logger = logging.getLogger(__name__)
 
 class LLMProviderService:
     @staticmethod
+    def analyse_highlights(transcript, duration=300, clip_type='shorts'):
+        """Return ranked, bounded clip suggestions; use configured OpenAI or a safe fallback."""
+        duration = max(15, min(int(duration or 300), 14400))
+        target = {'shorts': 35, 'reel': 45, 'vlog': 120}.get(clip_type, 45)
+        api_key = getattr(settings, 'AI_API_KEY', '')
+        if getattr(settings, 'AI_PROVIDER', '') == 'openai' and api_key.startswith('sk-') and transcript.strip():
+            try:
+                import openai
+                client = openai.OpenAI(api_key=api_key)
+                response = client.chat.completions.create(
+                    model=getattr(settings, 'AI_MODEL', 'gpt-4o-mini'),
+                    messages=[{'role':'system','content':f'Return JSON with a highlights array. Select 3 engaging {clip_type} segments, each about {target}s. Each item: start, end, score (0-100), title, hook, reason. Never exceed video duration {duration}s.'},{'role':'user','content':transcript[:20000]}],
+                    response_format={'type':'json_object'}, temperature=.2,
+                )
+                result = json.loads(response.choices[0].message.content)
+                if isinstance(result.get('highlights'), list): return result['highlights'][:6]
+            except Exception as exc:
+                logger.warning('Highlight AI fallback: %s', exc)
+        starts = [max(0, int(duration*.08)), max(0, int(duration*.38)), max(0, int(duration*.68))]
+        labels = ['Strong opening insight', 'Key explanation', 'Memorable conclusion']
+        return [{'id':f'clip_{index+1}','start':start,'end':min(duration,start+target),'score':94-index*5,'title':labels[index],'hook':['Start with the clearest promise','Lead with the main takeaway','Close with the strongest lesson'][index],'reason':['High hook potential','Dense, useful information','Strong standalone ending'][index]} for index,start in enumerate(starts)]
+
+    @staticmethod
     def generate_content_package(topic_or_text, target_platforms, brand_profile=None):
         """
         Generates full multi-platform content assets.

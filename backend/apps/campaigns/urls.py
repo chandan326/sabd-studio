@@ -2,10 +2,11 @@ from django.urls import path
 from apps.campaigns.views import (
     CampaignListCreateView, CampaignDetailView, CampaignUploadView,
     CampaignProcessView, CampaignStatusView, CampaignTranscriptView, CampaignExportView,
-    CampaignMediaView
+    CampaignMediaView, HighlightAnalysisView
 )
 
 urlpatterns = [
+    path('highlights/analyse', HighlightAnalysisView.as_view(), name='highlight-analysis'),
     path('', CampaignListCreateView.as_view(), name='campaign-list-create'),
     path('<uuid:campaign_id>', CampaignDetailView.as_view(), name='campaign-detail'),
     path('<uuid:campaign_id>/upload', CampaignUploadView.as_view(), name='campaign-upload'),

@@ -24,6 +24,7 @@ Creators repeatedly rewrite the same source material for every platform. Sabd St
 - Media editor with local preview, trimming, aspect-ratio reframing, filters, caption overlays, mute/speed controls, and non-destructive render recipes
 - Browser-native WebM rendering with live progress and download, plus optional Cloudinary persistence when a campaign is selected
 - Grouped, collapsible dashboard navigation and a side-by-side editor with sticky bottom output controls
+- AI Clip Studio for compliant YouTube embeds, transcript-aware highlight ranking, Shorts/Reel/Vlog presets, and Media Editor handoff for owned source files
 - Integration Hub showing the exact Vercel variables required for AI, transcription, media, data, email, and social publishing providers
 - OpenAPI/Swagger documentation and Docker configuration
 

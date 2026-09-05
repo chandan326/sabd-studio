@@ -13,6 +13,19 @@ from apps.transcripts.models import Transcript
 from apps.assets.models import GeneratedAsset
 from apps.campaigns.services import run_campaign_pipeline
 from apps.integrations.services import CloudinaryStorageService, MongoService, VoiceoverService
+from apps.generations.services import LLMProviderService
+
+class HighlightAnalysisView(APIView):
+    def post(self, request):
+        source_url = request.data.get('source_url', '').strip()
+        transcript = request.data.get('transcript', '').strip()
+        duration = request.data.get('duration', 300)
+        clip_type = request.data.get('clip_type', 'shorts')
+        if not source_url and not transcript:
+            return Response({'success': False, 'error': {'code':'VALIDATION_ERROR','message':'Add a YouTube URL or transcript first'}}, status=status.HTTP_400_BAD_REQUEST)
+        highlights = LLMProviderService.analyse_highlights(transcript, duration, clip_type)
+        MongoService.record_event('highlight_analyses', {'user_id':str(request.user.id),'source_url':source_url,'clip_type':clip_type,'count':len(highlights)})
+        return Response({'success':True,'data':{'highlights':highlights,'provider':'ai' if transcript else 'timeline_estimator'},'message':'Highlights ranked','request_id':str(uuid.uuid4())})
 
 class CampaignListCreateView(APIView):
     def get(self, request):

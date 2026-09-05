@@ -40,6 +40,8 @@ export default function MediaEditorPage() {
 
   const { data: campaigns = [] } = useQuery({ queryKey: ['campaigns'], queryFn: () => api.getCampaigns() });
 
+  useEffect(() => { try { const raw = localStorage.getItem('sabd_clip_handoff'); if (!raw) return; const clip = JSON.parse(raw); setTrimStart(Number(clip.start)||0); setTrimEnd(Number(clip.end)||30); setAspectRatio(clip.aspect||'9:16'); setCaption(clip.caption||''); setStatus(`Clip preset “${clip.title||'AI highlight'}” loaded. Upload your authorised original video to render it.`); localStorage.removeItem('sabd_clip_handoff'); } catch {} }, []);
+
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
 
   const selectFile = (selected: File | null) => {
@@ -52,7 +54,7 @@ export default function MediaEditorPage() {
 
   const syncDuration = () => {
     const value = Math.max(1, Math.floor(mediaRef.current?.duration || 30));
-    setDuration(value); setTrimEnd(value);
+    setDuration(value); setTrimStart(current => Math.min(current, Math.max(0,value-.1))); setTrimEnd(current => Math.min(current || value,value));
   };
 
   const previewTrim = () => {
