@@ -1,9 +1,23 @@
+import os
 import uuid
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from apps.integrations.models import PlatformIntegration
 from apps.workspaces.models import WorkspaceMember
+
+PROVIDERS = {
+    'youtube': ('Publishing', ['YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET']),
+    'instagram': ('Publishing', ['META_APP_ID', 'META_APP_SECRET']),
+    'linkedin': ('Publishing', ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET']),
+    'twitter': ('Publishing', ['TWITTER_CLIENT_ID', 'TWITTER_CLIENT_SECRET']),
+    'cloudinary': ('Media', ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET']),
+    'mongodb': ('Data', ['MONGODB_URI']),
+    'openai': ('AI', ['AI_API_KEY']),
+    'gemini': ('AI', ['GEMINI_API_KEY']),
+    'whisper': ('Transcription', ['TRANSCRIPTION_API_KEY']),
+    'gmail': ('Email', ['EMAIL_HOST_USER', 'EMAIL_HOST_PASSWORD']),
+}
 
 class IntegrationListView(APIView):
     def get(self, request):
@@ -17,7 +31,7 @@ class IntegrationListView(APIView):
         integrations = PlatformIntegration.objects.filter(workspace_id=workspace_id)
         existing_providers = {i.provider: i for i in integrations}
 
-        providers = ['youtube', 'instagram', 'linkedin', 'twitter']
+        providers = list(PROVIDERS)
         data = []
 
         for p in providers:
@@ -29,7 +43,8 @@ class IntegrationListView(APIView):
                     "display_name": item.display_name or f"{p.title()} Channel",
                     "status": item.status,
                     "connected_at": item.created_at.isoformat(),
-                    "configured": True
+                    "configured": all(os.getenv(key) for key in PROVIDERS[p][1]),
+                    "category": PROVIDERS[p][0], "required_env": PROVIDERS[p][1]
                 })
             else:
                 data.append({
@@ -38,7 +53,8 @@ class IntegrationListView(APIView):
                     "display_name": f"{p.title()} Account",
                     "status": "disconnected",
                     "connected_at": None,
-                    "configured": False
+                    "configured": all(os.getenv(key) for key in PROVIDERS[p][1]),
+                    "category": PROVIDERS[p][0], "required_env": PROVIDERS[p][1]
                 })
 
         return Response({
@@ -56,21 +72,25 @@ class IntegrationConnectView(APIView):
             if member:
                 workspace_id = member.workspace.id
 
-        if provider not in ['youtube', 'instagram', 'linkedin', 'twitter']:
+        if provider not in PROVIDERS:
             return Response({"success": False, "error": {"code": "VALIDATION_ERROR", "message": f"Unsupported provider {provider}", "fields": {}}, "request_id": str(uuid.uuid4())}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Mock / Demo OAuth connection handler
+        missing = [key for key in PROVIDERS[provider][1] if not os.getenv(key)]
+        if missing:
+            return Response({"success": False, "error": {"code": "SETUP_REQUIRED", "message": f"Add these environment variables first: {', '.join(missing)}", "fields": {"required_env": missing}}, "request_id": str(uuid.uuid4())}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Records readiness after credentials exist. OAuth callbacks are provider-specific.
         integration, _ = PlatformIntegration.objects.get_or_create(
             workspace_id=workspace_id,
             provider=provider,
             defaults={
-                "display_name": f"Demo {provider.title()} Channel",
+                "display_name": f"{provider.title()} Provider",
                 "external_account_id": f"acc_{uuid.uuid4().hex[:8]}",
                 "status": "connected"
             }
         )
         integration.status = 'connected'
-        integration.display_name = f"Demo {provider.title()} Account"
+        integration.display_name = f"{provider.title()} Provider"
         integration.save()
 
         return Response({
@@ -81,7 +101,7 @@ class IntegrationConnectView(APIView):
                 "status": "connected",
                 "display_name": integration.display_name
             },
-            "message": f"Connected to {provider.title()} successfully (Demo API Mode)",
+            "message": f"{provider.title()} configuration verified",
             "request_id": str(uuid.uuid4())
         })
 

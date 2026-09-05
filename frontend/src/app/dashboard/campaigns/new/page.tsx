@@ -12,7 +12,7 @@ export default function NewCampaignWizardPage() {
 
   // Form State
   const [name, setName] = useState('');
-  const [sourceType, setSourceType] = useState<'text' | 'transcript' | 'document' | 'url'>('text');
+  const [sourceType, setSourceType] = useState<'text' | 'transcript' | 'document' | 'video' | 'audio' | 'url'>('text');
   const [sourceText, setSourceText] = useState('Building a production-grade AI content pipeline application that automates YouTube, Instagram, LinkedIn, Twitter, Blog, and Shorts asset generation from a single transcript or topic idea.');
   const [sourceUrl, setSourceUrl] = useState('');
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['youtube', 'instagram', 'linkedin', 'twitter', 'blog', 'shorts']);
@@ -119,11 +119,13 @@ export default function NewCampaignWizardPage() {
           </div>
 
           {/* Source Type Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {[
               { id: 'text', label: 'Topic / Text Idea', icon: Sparkles },
               { id: 'transcript', label: 'Raw Transcript', icon: FileText },
               { id: 'document', label: 'File Upload (PDF/DOCX)', icon: Upload },
+              { id: 'video', label: 'Video Upload', icon: Video },
+              { id: 'audio', label: 'Audio Upload', icon: Upload },
               { id: 'url', label: 'Public URL Import', icon: LinkIcon },
             ].map((st) => {
               const Icon = st.icon;
@@ -145,12 +147,13 @@ export default function NewCampaignWizardPage() {
             })}
           </div>
 
-          {sourceType === 'document' ? (
+          {['document', 'video', 'audio'].includes(sourceType) ? (
             <div className="border-2 border-dashed border-border p-8 rounded-xl text-center space-y-2 bg-secondary/20">
               <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
               <p className="text-xs font-medium">Upload PDF, DOCX, TXT, MP3, or MP4 file</p>
-              <input
-                type="file"
+                <input
+                  type="file"
+                  accept={sourceType === 'video' ? 'video/*' : sourceType === 'audio' ? 'audio/*' : '.pdf,.docx,.txt'}
                 onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
                 className="text-xs text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground"
               />

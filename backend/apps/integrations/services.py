@@ -76,3 +76,40 @@ class CloudinaryStorageService:
             "secure_url": result.get("secure_url", ""),
             "resource_type": result.get("resource_type", "raw"),
         }
+
+    @classmethod
+    def transformation_url(cls, public_id, edits):
+        """Build a signed Cloudinary delivery URL without doing long work in-request."""
+        if not cls.configured() or not public_id:
+            return None
+        import cloudinary
+        import cloudinary.utils
+
+        cloudinary.config(
+            cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+            api_key=settings.CLOUDINARY_API_KEY,
+            api_secret=settings.CLOUDINARY_API_SECRET,
+            secure=True,
+        )
+        transformation = {
+            "start_offset": max(0, float(edits.get("trim_start", 0))),
+            "end_offset": max(0.1, float(edits.get("trim_end", 30))),
+            "crop": "fill",
+            "aspect_ratio": edits.get("aspect_ratio", "16:9"),
+            "gravity": "auto",
+            "quality": "auto:good",
+            "fetch_format": "mp4",
+        }
+        if edits.get("muted"):
+            transformation["audio_codec"] = "none"
+        effect = edits.get("filter", "none")
+        if effect in {"grayscale", "sepia"}:
+            transformation["effect"] = effect
+        url, _ = cloudinary.utils.cloudinary_url(
+            public_id,
+            resource_type="video",
+            secure=True,
+            sign_url=True,
+            transformation=[transformation],
+        )
+        return url

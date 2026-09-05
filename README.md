@@ -21,6 +21,8 @@ Creators repeatedly rewrite the same source material for every platform. Sabd St
 - Provider-ready integrations and a deterministic local demo generator
 - Google account sign-in with server-side ID-token verification
 - Cloudinary media uploads and optional MongoDB event storage
+- Media editor with local preview, trimming, aspect-ratio reframing, filters, caption overlays, mute/speed controls, and non-destructive render recipes
+- Integration Hub showing the exact Vercel variables required for AI, transcription, media, data, email, and social publishing providers
 - OpenAPI/Swagger documentation and Docker configuration
 
 ## Architecture
@@ -83,6 +85,24 @@ cp .env.example .env
 ```
 
 The example contains placeholders. Never commit the populated `.env` file.
+
+For Vercel, link the project and add values interactively (never paste secrets into Git):
+
+```bash
+npm install -g vercel
+vercel login
+vercel link
+vercel env add CLOUDINARY_CLOUD_NAME production
+vercel env add CLOUDINARY_API_KEY production
+vercel env add CLOUDINARY_API_SECRET production
+vercel env add MONGODB_URI production
+vercel env add AI_API_KEY production
+vercel env add GOOGLE_CLIENT_ID production
+vercel env add NEXT_PUBLIC_GOOGLE_CLIENT_ID production
+vercel env pull .env.local
+```
+
+The Integration Hub lists the remaining provider-specific variable names and offers a copy button. Add only the providers you intend to enable.
 
 ### 2. Backend
 
@@ -169,9 +189,10 @@ The Compose file defines frontend, backend, worker, PostgreSQL, and Redis servic
 4. Launch the pipeline and observe its processing stages.
 5. Review, edit, and approve an asset in Content Studio.
 6. Inspect the asset's SEO score and thumbnail concepts.
-7. Schedule the approved asset on the calendar.
-8. Export the campaign package.
-9. Explain the feedback loop through Analytics and Recommendations.
+7. Open Media Editor, upload a clip, preview a trim, and save its Cloudinary render recipe.
+8. Schedule the approved asset on the calendar.
+9. Export the campaign package.
+10. Explain the feedback loop through Analytics and Recommendations.
 
 ## Security notes
 

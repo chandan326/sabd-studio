@@ -240,6 +240,52 @@ class CampaignUploadView(APIView):
             "request_id": str(uuid.uuid4())
         })
 
+class CampaignMediaView(APIView):
+    """List uploaded media and create a non-destructive render recipe."""
+
+    def _campaign(self, request, campaign_id):
+        campaign = Campaign.objects.filter(id=campaign_id).first()
+        if not campaign or not WorkspaceMember.objects.filter(workspace=campaign.workspace, user=request.user).exists():
+            return None
+        return campaign
+
+    def get(self, request, campaign_id):
+        campaign = self._campaign(request, campaign_id)
+        if not campaign:
+            return Response({"success": False, "error": {"code": "NOT_FOUND", "message": "Campaign or media not found"}}, status=status.HTTP_404_NOT_FOUND)
+        media = [{
+            "id": str(item.id), "filename": item.original_filename,
+            "mime_type": item.mime_type, "file_size": item.file_size,
+            "storage_key": item.storage_key, "status": item.processing_status,
+        } for item in campaign.source_assets.all()]
+        return Response({"success": True, "data": media, "message": "Media sources listed", "request_id": str(uuid.uuid4())})
+
+    def post(self, request, campaign_id):
+        campaign = self._campaign(request, campaign_id)
+        if not campaign:
+            return Response({"success": False, "error": {"code": "NOT_FOUND", "message": "Campaign not found"}}, status=status.HTTP_404_NOT_FOUND)
+        source_id = request.data.get("source_asset_id")
+        source = campaign.source_assets.filter(id=source_id).first() if source_id else campaign.source_assets.first()
+        if not source:
+            return Response({"success": False, "error": {"code": "VALIDATION_ERROR", "message": "Upload a media file first"}}, status=status.HTTP_400_BAD_REQUEST)
+        edits = request.data.get("edits", {})
+        trim_start = float(edits.get("trim_start", 0))
+        trim_end = float(edits.get("trim_end", 30))
+        if trim_start < 0 or trim_end <= trim_start or trim_end - trim_start > 3600:
+            return Response({"success": False, "error": {"code": "VALIDATION_ERROR", "message": "Invalid trim range"}}, status=status.HTTP_400_BAD_REQUEST)
+        edits["trim_start"], edits["trim_end"] = trim_start, trim_end
+        render_url = CloudinaryStorageService.transformation_url(source.storage_key, edits)
+        event_id = MongoService.record_event("media_edit_jobs", {
+            "campaign_id": str(campaign.id), "source_asset_id": str(source.id),
+            "user_id": str(request.user.id), "edits": edits,
+            "provider": "cloudinary" if render_url else "recipe",
+        })
+        return Response({"success": True, "data": {
+            "id": event_id or str(uuid.uuid4()), "status": "ready" if render_url else "recipe_saved",
+            "provider": "cloudinary" if render_url else "local_recipe",
+            "render_url": render_url, "edits": edits,
+        }, "message": "Media edit prepared", "request_id": str(uuid.uuid4())})
+
 class CampaignProcessView(APIView):
     def post(self, request, campaign_id):
         try:

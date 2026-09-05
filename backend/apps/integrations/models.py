@@ -8,6 +8,12 @@ class PlatformIntegration(models.Model):
         ('instagram', 'Instagram / Meta'),
         ('linkedin', 'LinkedIn'),
         ('twitter', 'X / Twitter'),
+        ('cloudinary', 'Cloudinary'),
+        ('mongodb', 'MongoDB'),
+        ('openai', 'OpenAI'),
+        ('gemini', 'Google Gemini'),
+        ('whisper', 'Whisper'),
+        ('gmail', 'Gmail SMTP'),
     ]
 
     STATUS_CHOICES = [

@@ -113,6 +113,8 @@ export const api = {
     }
     return await res.blob();
   },
+  getCampaignMedia: (campaignId: string) => apiFetch(`/campaigns/${campaignId}/media`),
+  renderCampaignMedia: (campaignId: string, payload: any) => apiFetch(`/campaigns/${campaignId}/media`, { method: 'POST', body: JSON.stringify(payload) }),
 
   // Assets & Studio
   getAssets: (params: string = '') => apiFetch(`/assets?${params}`),

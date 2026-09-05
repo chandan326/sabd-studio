@@ -47,7 +47,13 @@ function seedState(): DemoState {
     campaigns: [{ id: campaignId, name, title: name, status: 'completed', input_type: 'topic', assets_count: assets.length, created_at: now(), updated_at: now() }],
     assets,
     schedules: [{ id: 'schedule_demo', asset_id: assets[0].id, asset_title: assets[0].title, platform: assets[0].platform, scheduled_for: new Date(Date.now() + 86400000).toISOString(), timezone: 'UTC', status: 'scheduled' }],
-    integrations: ['youtube', 'instagram', 'linkedin', 'twitter'].map((provider) => ({ id: `integration_${provider}`, provider, display_name: `${provider[0].toUpperCase()}${provider.slice(1)} publishing`, status: 'disconnected' })),
+    integrations: [
+      ['youtube', 'Publishing', ['YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET']], ['instagram', 'Publishing', ['META_APP_ID', 'META_APP_SECRET']],
+      ['linkedin', 'Publishing', ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET']], ['twitter', 'Publishing', ['TWITTER_CLIENT_ID', 'TWITTER_CLIENT_SECRET']],
+      ['cloudinary', 'Media', ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET']], ['mongodb', 'Data', ['MONGODB_URI']],
+      ['openai', 'AI', ['AI_API_KEY']], ['gemini', 'AI', ['GEMINI_API_KEY']], ['whisper', 'Transcription', ['TRANSCRIPTION_API_KEY']],
+      ['gmail', 'Email', ['EMAIL_HOST_USER', 'EMAIL_HOST_PASSWORD']],
+    ].map(([provider, category, required_env]) => ({ id: `integration_${provider}`, provider, category, required_env, configured: false, display_name: `${String(provider)[0].toUpperCase()}${String(provider).slice(1)} integration`, status: 'disconnected' })),
     brand: { brand_name: 'Sabd Studio', voice_tone: 'clear, practical, confident', target_audience: 'creators and marketing teams', primary_color: '#1a73e8', keywords: 'creator workflow, content automation, publishing' },
   };
 }
@@ -106,6 +112,10 @@ export async function demoApiFetch(endpoint: string, options: RequestInit = {}):
   if (segments[0] === 'campaigns' && segments[2] === 'process') return { status: 'completed' };
   if (segments[0] === 'campaigns' && segments[2] === 'status') return { status: 'completed', progress: 100 };
   if (segments[0] === 'campaigns' && segments[2] === 'transcript') return method === 'PUT' ? input : { original_text: 'Demo source transcript.', edited_text: 'Demo source transcript.' };
+  if (segments[0] === 'campaigns' && segments[2] === 'media') {
+    if (method === 'GET') return [];
+    return { id: uid('render'), status: 'recipe_saved', provider: 'browser_preview', render_url: null, edits: input.edits || {} };
+  }
 
   if (path === '/assets' || path === '/assets/') {
     const platform = new URLSearchParams(endpoint.split('?')[1] || '').get('platform');

@@ -6,7 +6,8 @@ import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
   Sparkles, 
-  FileText, 
+  FileText,
+  Clapperboard,
   Search, 
   Image as ImageIcon, 
   Calendar, 
@@ -22,6 +23,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Campaigns', href: '/dashboard/campaigns', icon: Sparkles },
   { name: 'Content Studio', href: '/dashboard/studio', icon: FileText },
+  { name: 'Media Editor', href: '/dashboard/media', icon: Clapperboard },
   { name: 'SEO Analyzer', href: '/dashboard/seo', icon: Search },
   { name: 'Thumbnail Studio', href: '/dashboard/thumbnails', icon: ImageIcon },
   { name: 'Content Calendar', href: '/dashboard/calendar', icon: Calendar },

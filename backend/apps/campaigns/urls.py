@@ -1,7 +1,8 @@
 from django.urls import path
 from apps.campaigns.views import (
     CampaignListCreateView, CampaignDetailView, CampaignUploadView,
-    CampaignProcessView, CampaignStatusView, CampaignTranscriptView, CampaignExportView
+    CampaignProcessView, CampaignStatusView, CampaignTranscriptView, CampaignExportView,
+    CampaignMediaView
 )
 
 urlpatterns = [
@@ -12,4 +13,5 @@ urlpatterns = [
     path('<uuid:campaign_id>/status', CampaignStatusView.as_view(), name='campaign-status'),
     path('<uuid:campaign_id>/transcript', CampaignTranscriptView.as_view(), name='campaign-transcript'),
     path('<uuid:campaign_id>/export', CampaignExportView.as_view(), name='campaign-export'),
+    path('<uuid:campaign_id>/media', CampaignMediaView.as_view(), name='campaign-media'),
 ]
