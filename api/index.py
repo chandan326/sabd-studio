@@ -38,6 +38,22 @@ def _restore_original_path(environ):
     if original_path:
         if not original_path.startswith("/"):
             original_path = f"/{original_path}"
+        # Django's collection routes are mounted with a trailing slash, while
+        # item/action routes intentionally are not. Normalise only the former
+        # so browser GETs and POST requests never enter a redirect loop.
+        collection_routes = {
+            "/api/v1/workspaces",
+            "/api/v1/brand-profile",
+            "/api/v1/campaigns",
+            "/api/v1/assets",
+            "/api/v1/schedules",
+            "/api/v1/integrations",
+            "/api/v1/recommendations",
+            "/api/v1/notifications",
+            "/api/v1/audit-logs",
+        }
+        if original_path.rstrip("/") in collection_routes:
+            original_path = f'{original_path.rstrip("/")}/'
         environ["PATH_INFO"] = original_path
         environ["QUERY_STRING"] = "&".join(
             f"{key}={value}" for key, values in query.items() for value in values
@@ -77,4 +93,3 @@ def app(environ, start_response):
             )
 
     return _django_application(environ, start_response)
-
