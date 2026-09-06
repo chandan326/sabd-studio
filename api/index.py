@@ -16,6 +16,7 @@ if str(BACKEND_DIR) not in sys.path:
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "creatorflow.settings")
 
 _django_application = None
+_database_ready = False
 
 
 def _json_response(start_response, status, payload):
@@ -75,7 +76,7 @@ def app(environ, start_response):
             },
         )
 
-    global _django_application
+    global _django_application, _database_ready
     if _django_application is None:
         try:
             from creatorflow.wsgi import application
@@ -89,6 +90,30 @@ def app(environ, start_response):
                 {
                     "success": False,
                     "error": {"code": "BACKEND_INITIALIZATION_FAILED"},
+                },
+            )
+
+    if not _database_ready:
+        try:
+            # Vercel functions do not run a release command. Applying only
+            # pending migrations here makes fresh databases usable and is a
+            # no-op on subsequent warm requests.
+            if os.getenv("AUTO_MIGRATE", "true").lower() == "true":
+                from django.core.management import call_command
+
+                call_command("migrate", interactive=False, verbosity=0)
+            _database_ready = True
+        except Exception:
+            traceback.print_exc()
+            return _json_response(
+                start_response,
+                "503 Service Unavailable",
+                {
+                    "success": False,
+                    "error": {
+                        "code": "DATABASE_INITIALIZATION_FAILED",
+                        "message": "The application database is not ready.",
+                    },
                 },
             )
 
