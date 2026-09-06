@@ -220,6 +220,11 @@ The Compose file defines frontend, backend, worker, PostgreSQL, and Redis servic
 - PostgreSQL, Redis, Celery, cloud storage, HTTPS, monitoring, and backups require deployment-specific configuration and verification.
 - Real transcription depends on a configured transcription provider.
 
+## Project leadership
+
+- **Chandan Kumar Rai** (`@chandan326`) — Creator and maintainer
+- **Manshi Vinod** (`@manshivinodd`) — Project Lead and contributor
+
 ## Contributing
 
 Create a feature branch, keep secrets out of commits, add tests for changed behaviour, and verify both Django and Next.js before opening a pull request.
