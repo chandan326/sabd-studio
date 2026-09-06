@@ -13,13 +13,9 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "creatorflow.settings")
 
 from creatorflow.wsgi import application  # noqa: E402
 
-# Never run migrations during the default serverless cold start. A migration can
-# exceed the invocation timeout and make even the health endpoint unavailable.
-# It remains opt-in for controlled one-off deployments.
-if os.getenv("AUTO_MIGRATE", "false").lower() == "true":
-    from django.core.management import call_command  # noqa: E402
-
-    call_command("migrate", interactive=False, verbosity=0)
+# Database migrations must run as a deployment/release operation. Running them
+# while importing a serverless function can exceed the cold-start timeout and
+# make every route, including the health check, return 500.
 
 # Vercel's Python runtime discovers a WSGI callable named `app`.
 app = application
