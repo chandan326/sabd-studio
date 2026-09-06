@@ -3,5 +3,29 @@
   "framework": "nextjs",
   "installCommand": "npm --prefix frontend ci",
   "buildCommand": "npm --prefix frontend run build",
-  "outputDirectory": "frontend/.next"
+  "outputDirectory": "frontend/.next",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 60,
+      "includeFiles": "backend/**"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/health",
+      "destination": "/api/index?_path=/api/health"
+    },
+    {
+      "source": "/api/v1/:path*",
+      "destination": "/api/index?_path=/api/v1/:path*"
+    },
+    {
+      "source": "/api/schema/:path*",
+      "destination": "/api/index?_path=/api/schema/:path*"
+    },
+    {
+      "source": "/api/docs/:path*",
+      "destination": "/api/index?_path=/api/docs/:path*"
+    }
+  ]
 }
