@@ -13,9 +13,10 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "creatorflow.settings")
 
 from creatorflow.wsgi import application  # noqa: E402
 
-# Vercel Functions do not have a separate release phase. Apply migrations once
-# per warm instance so a configured external database is ready before traffic.
-if os.getenv("AUTO_MIGRATE", "true").lower() == "true":
+# Never run migrations during the default serverless cold start. A migration can
+# exceed the invocation timeout and make even the health endpoint unavailable.
+# It remains opt-in for controlled one-off deployments.
+if os.getenv("AUTO_MIGRATE", "false").lower() == "true":
     from django.core.management import call_command  # noqa: E402
 
     call_command("migrate", interactive=False, verbosity=0)
