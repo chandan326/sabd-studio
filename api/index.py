@@ -103,7 +103,7 @@ def app(environ, start_response):
 
                 call_command("migrate", interactive=False, verbosity=0)
             _database_ready = True
-        except Exception:
+        except Exception as exc:
             traceback.print_exc()
             return _json_response(
                 start_response,

@@ -89,12 +89,14 @@ WSGI_APPLICATION = 'creatorflow.wsgi.application'
 ASGI_APPLICATION = 'creatorflow.asgi.application'
 
 sqlite_path = Path('/tmp/sabd-studio.sqlite3') if os.getenv('VERCEL') else BASE_DIR / 'db.sqlite3'
+database_url = os.getenv('DATABASE_URL', f"sqlite:///{sqlite_path}")
+uses_postgres = database_url.startswith(('postgres://', 'postgresql://'))
 DATABASES = {
     'default': dj_database_url.config(
-        default=f"sqlite:///{sqlite_path}",
+        default=database_url,
         conn_max_age=int(os.getenv('DB_CONN_MAX_AGE', '60')),
         conn_health_checks=True,
-        ssl_require=os.getenv('DB_SSL_REQUIRE', 'false').lower() == 'true',
+        ssl_require=uses_postgres and os.getenv('DB_SSL_REQUIRE', 'false').lower() == 'true',
     )
 }
 
