@@ -17,7 +17,7 @@
     },
     {
       "source": "/api/v1/:path*",
-      "destination": "/api/index?_path=/api/v1/:path*"
+      "destination": "/api/index?_path=/api/v1/:path*/"
     },
     {
       "source": "/api/schema/:path*",
