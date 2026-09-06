@@ -13,7 +13,19 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-local-development-only')
 APP_ENV = os.getenv('APP_ENV', 'development').lower()
 DEBUG = os.getenv('DEBUG', 'true' if APP_ENV == 'development' else 'false').lower() == 'true'
 
-ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,.vercel.app').split(',') if h.strip()]
+configured_hosts = [
+    h.strip() for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h.strip()
+]
+# Keep platform hosts available even when ALLOWED_HOSTS is supplied in Vercel.
+# A stale dashboard value must not make every Django route return HTTP 400.
+ALLOWED_HOSTS = list(dict.fromkeys([
+    *configured_hosts,
+    'localhost',
+    '127.0.0.1',
+    '.vercel.app',
+    os.getenv('VERCEL_URL', '').strip(),
+]))
+ALLOWED_HOSTS = [host for host in ALLOWED_HOSTS if host]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -115,6 +127,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 frontend_origins = ','.join(filter(None, (
     os.getenv('FRONTEND_URL', ''),
     os.getenv('APP_URL', ''),
+    'https://sabd-studio.vercel.app',
     'http://localhost:3000,http://127.0.0.1:3000',
 )))
 CORS_ALLOWED_ORIGINS = list(dict.fromkeys(
