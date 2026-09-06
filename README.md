@@ -223,7 +223,7 @@ The Compose file defines frontend, backend, worker, PostgreSQL, and Redis servic
 ## Project leadership
 
 - **Chandan Kumar Rai** (`@chandan326`) — Creator and maintainer
-- **Manshi Vinod** (`@manshivinodd`) — Project Lead and contributor
+- **Manshi Vinod** (`@manshivinodd`) — Contributor
 
 ## Contributing
 
