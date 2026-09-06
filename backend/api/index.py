@@ -1,7 +1,9 @@
-"""Vercel Python entrypoint for the Sabd Studio Django API."""
+"""Vercel WSGI entrypoint for the Sabd Studio Django API."""
 
+import json
 import os
 import sys
+import traceback
 from pathlib import Path
 
 
@@ -11,11 +13,38 @@ if str(BACKEND_DIR) not in sys.path:
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "creatorflow.settings")
 
-from creatorflow.wsgi import application  # noqa: E402
+_django_application = None
 
-# Database migrations must run as a deployment/release operation. Running them
-# while importing a serverless function can exceed the cold-start timeout and
-# make every route, including the health check, return 500.
 
-# Vercel's Python runtime discovers a WSGI callable named `app`.
-app = application
+def _json_response(start_response, status, payload):
+    body = json.dumps(payload).encode("utf-8")
+    start_response(status, [
+        ("Content-Type", "application/json; charset=utf-8"),
+        ("Content-Length", str(len(body))),
+        ("Cache-Control", "no-store"),
+    ])
+    return [body]
+
+
+def app(environ, start_response):
+    """Serve a dependency-free health check and lazily initialize Django."""
+    path = (environ.get("PATH_INFO") or "/").rstrip("/")
+    if path in {"/health", "/api/v1/health"}:
+        return _json_response(start_response, "200 OK", {
+            "success": True,
+            "data": {"status": "healthy", "service": "sabd-studio-api"},
+        })
+
+    global _django_application
+    if _django_application is None:
+        try:
+            from creatorflow.wsgi import application
+            _django_application = application
+        except Exception:
+            traceback.print_exc()
+            return _json_response(start_response, "500 Internal Server Error", {
+                "success": False,
+                "error": {"code": "BACKEND_INITIALIZATION_FAILED"},
+            })
+
+    return _django_application(environ, start_response)
