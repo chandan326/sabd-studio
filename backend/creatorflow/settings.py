@@ -89,7 +89,15 @@ WSGI_APPLICATION = 'creatorflow.wsgi.application'
 ASGI_APPLICATION = 'creatorflow.asgi.application'
 
 sqlite_path = Path('/tmp/sabd-studio.sqlite3') if os.getenv('VERCEL') else BASE_DIR / 'db.sqlite3'
-database_url = os.getenv('DATABASE_URL', f"sqlite:///{sqlite_path}")
+# Prefer a serverless connection-pool URL provisioned by Supabase/Vercel.
+# Supabase's direct db.<ref>.supabase.co endpoint can resolve IPv6-only, while
+# Vercel Functions reliably connect through the transaction/session pooler.
+database_url = (
+    os.getenv('DATABASE_POOLER_URL')
+    or os.getenv('POSTGRES_URL')
+    or os.getenv('DATABASE_URL')
+    or f"sqlite:///{sqlite_path}"
+)
 uses_postgres = database_url.startswith(('postgres://', 'postgresql://'))
 DATABASES = {
     'default': dj_database_url.config(
