@@ -10,8 +10,7 @@ dotenv.load_dotenv(os.path.join(BASE_DIR.parent, '.env'))
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-local-development-only')
 
-APP_ENV = os.getenv('APP_ENV', 'development').lower()
-DEBUG = os.getenv('DEBUG', 'true' if APP_ENV == 'development' else 'false').lower() == 'true'
+DEBUG = os.getenv('DEBUG', 'true').lower() == 'true'
 
 ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,.vercel.app').split(',') if h.strip()]
 
@@ -76,10 +75,9 @@ TEMPLATES = [
 WSGI_APPLICATION = 'creatorflow.wsgi.application'
 ASGI_APPLICATION = 'creatorflow.asgi.application'
 
-sqlite_path = Path('/tmp/sabd-studio.sqlite3') if os.getenv('VERCEL') else BASE_DIR / 'db.sqlite3'
 DATABASES = {
     'default': dj_database_url.config(
-        default=f"sqlite:///{sqlite_path}",
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
         conn_max_age=int(os.getenv('DB_CONN_MAX_AGE', '60')),
         conn_health_checks=True,
         ssl_require=os.getenv('DB_SSL_REQUIRE', 'false').lower() == 'true',
@@ -112,18 +110,13 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-frontend_origins = ','.join(filter(None, (
-    os.getenv('FRONTEND_URL', ''),
-    os.getenv('APP_URL', ''),
-    'http://localhost:3000,http://127.0.0.1:3000',
-)))
-CORS_ALLOWED_ORIGINS = list(dict.fromkeys(
-    o.strip().rstrip('/') for o in os.getenv('CORS_ALLOWED_ORIGINS', frontend_origins).split(',') if o.strip()
-))
+CORS_ALLOWED_ORIGINS = [
+    o.strip() for o in os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000').split(',') if o.strip()
+]
 CORS_ALLOW_CREDENTIALS = True
-CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(
-    o.strip().rstrip('/') for o in os.getenv('CSRF_TRUSTED_ORIGINS', frontend_origins).split(',') if o.strip()
-))
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:3000').split(',') if o.strip()
+]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
