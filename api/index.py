@@ -82,7 +82,7 @@ def app(environ, start_response):
             from creatorflow.wsgi import application
 
             _django_application = application
-        except Exception:
+        except Exception as exc:
             traceback.print_exc()
             return _json_response(
                 start_response,
@@ -113,6 +113,7 @@ def app(environ, start_response):
                     "error": {
                         "code": "DATABASE_INITIALIZATION_FAILED",
                         "message": "The application database is not ready.",
+                        "diagnostic": type(exc).__name__,
                     },
                 },
             )
