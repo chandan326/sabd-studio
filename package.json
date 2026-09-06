@@ -1,6 +1,7 @@
 {
   "name": "sabd-studio",
   "version": "1.0.0",
+  "description": "Unified Sabd Studio frontend and Django API monorepo",
   "private": true,
   "workspaces": [
     "frontend"
