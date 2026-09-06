@@ -19,6 +19,27 @@ _django_application = None
 _database_ready = False
 
 
+def _migrate_database_safely():
+    """Run migrations once at a time across concurrent serverless instances."""
+    from django.core.management import call_command
+    from django.db import connection
+
+    # A cold production deployment can start several functions concurrently.
+    # PostgreSQL advisory locks prevent their post_migrate hooks from racing.
+    if connection.vendor == "postgresql":
+        lock_id = 7_306_421_915
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_advisory_lock(%s)", [lock_id])
+        try:
+            call_command("migrate", interactive=False, verbosity=0)
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT pg_advisory_unlock(%s)", [lock_id])
+        return
+
+    call_command("migrate", interactive=False, verbosity=0)
+
+
 def _json_response(start_response, status, payload):
     body = json.dumps(payload).encode("utf-8")
     start_response(
@@ -99,9 +120,7 @@ def app(environ, start_response):
             # pending migrations here makes fresh databases usable and is a
             # no-op on subsequent warm requests.
             if os.getenv("AUTO_MIGRATE", "true").lower() == "true":
-                from django.core.management import call_command
-
-                call_command("migrate", interactive=False, verbosity=0)
+                _migrate_database_safely()
             _database_ready = True
         except Exception as exc:
             traceback.print_exc()
