@@ -1,8 +1,10 @@
 import { demoApiFetch, demoExport } from './demo-api';
 
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/$/, '');
+// Frontend and Django now deploy as one Vercel project. Same-origin requests
+// avoid an obsolete backend URL, CORS handshakes, and an extra network hop.
+const API_BASE_URL = '/api/v1';
 const DEMO_FALLBACK = process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE !== 'false';
-const HAS_LIVE_API = Boolean(process.env.NEXT_PUBLIC_API_URL);
+const HAS_LIVE_API = true;
 
 export function getAuthToken(): string | null {
   if (typeof window !== 'undefined') {

@@ -103,7 +103,7 @@ class SEOService:
         checks.append({"rule": "platform_optimization", "score": 10, "max_score": 10, "status": "pass", "message": f"Formation verified for target platform '{platform.upper()}'."})
         total_score += 10
 
-        if asset.pk:
+        if not asset._state.adding:
             analysis, _ = SEOAnalysis.objects.get_or_create(asset=asset)
             analysis.overall_score = min(100, total_score)
             analysis.checks_json = checks
