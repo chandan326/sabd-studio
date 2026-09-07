@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Search, Sparkles, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
 
@@ -17,18 +17,28 @@ export default function SEOAnalyzerPage() {
   const [platform, setPlatform] = useState('youtube');
   const [analysis, setAnalysis] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleAnalyse = async () => {
+    if (!title.trim() || !content.trim()) { setError('Add both a title and content to analyse.'); return; }
     setLoading(true);
+    setError('');
     try {
       const data = await api.analyseSEO({ title, content, platform });
       setAnalysis(data);
     } catch (e: any) {
-      alert(e.message || 'Analysis failed');
+      setError(e.message || 'Analysis failed');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => { if (title.trim() && content.trim()) void handleAnalyse(); }, 500);
+    return () => window.clearTimeout(timer);
+    // Primitive dependencies keep the live analyser responsive without duplicate calls.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, content, platform]);
 
   return (
     <div className="space-y-6">
@@ -82,6 +92,7 @@ export default function SEOAnalyzerPage() {
           >
             {loading ? 'Evaluating Rules...' : 'Run 8-Rule SEO Analysis'} <Search className="h-4 w-4" />
           </button>
+          <p role="status" className={`text-[11px] ${error ? 'text-red-600' : 'text-muted-foreground'}`}>{error || 'Live analysis updates automatically as you type.'}</p>
         </div>
 
         {/* Right Column: Score Breakdown */}

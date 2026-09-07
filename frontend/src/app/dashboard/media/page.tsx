@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import TrimTimeline from '@/components/TrimTimeline';
-import { downloadMedia, renderVideoLocally } from '@/lib/media-render';
-import { Captions, Download, Film, FolderCheck, Mic2, Play, Save, SlidersHorizontal, Upload, Volume2, VolumeX } from 'lucide-react';
+import { downloadMedia, mergeVideoClipsLocally, renderVideoLocally } from '@/lib/media-render';
+import { Captions, Download, Film, FolderCheck, GripVertical, Mic2, Play, Plus, Save, SlidersHorizontal, Trash2, Upload, Volume2, VolumeX } from 'lucide-react';
 
 const aspectClasses: Record<string, string> = { '16:9': 'aspect-video', '9:16': 'aspect-[9/16]', '1:1': 'aspect-square', '4:5': 'aspect-[4/5]' };
 const filterPresets: Record<string, string> = { none: '', grayscale: 'grayscale(1)', sepia: 'sepia(.8)', cinematic: 'contrast(1.18) saturate(.82)', vivid: 'contrast(1.08) saturate(1.4)', cool: 'hue-rotate(12deg) saturate(1.12)', soft: 'contrast(.92) saturate(.9) brightness(1.08)' };
@@ -38,8 +38,9 @@ export default function MediaEditorPage() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('Choose a video or audio file to begin.');
   const [busy, setBusy] = useState(false);
+  const [mergeClips, setMergeClips] = useState<Array<{ id: string; file: File; url: string }>>([]);
 
-  const { data: campaigns = [] } = useQuery({ queryKey: ['campaigns'], queryFn: () => api.getCampaigns() });
+  const { data: campaigns = [] } = useQuery({ queryKey: ['campaigns'], queryFn: () => api.getCampaigns(), staleTime: 5 * 60 * 1000, retry: 1 });
 
   useEffect(() => { try { const raw = localStorage.getItem('sabd_clip_handoff'); if (!raw) return; const clip = JSON.parse(raw); setTrimStart(Number(clip.start)||0); setTrimEnd(Number(clip.end)||30); setAspectRatio(clip.aspect||'9:16'); setCaption(clip.caption||''); setStatus(`Clip preset “${clip.title||'AI highlight'}” loaded. Upload your authorised original video to render it.`); localStorage.removeItem('sabd_clip_handoff'); } catch {} }, []);
 
@@ -47,6 +48,18 @@ export default function MediaEditorPage() {
     if (previewTimerRef.current) window.clearTimeout(previewTimerRef.current);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
+
+  const addMergeClips = (files: FileList | null) => {
+    if (!files) return;
+    const accepted = Array.from(files).filter(item => item.type.startsWith('video/')).slice(0, Math.max(0, 5 - mergeClips.length));
+    setMergeClips(current => [...current, ...accepted.map(item => ({ id: crypto.randomUUID(), file: item, url: URL.createObjectURL(item) }))]);
+    setRenderedBlob(null); setStatus(`${accepted.length} clip${accepted.length === 1 ? '' : 's'} added to the merge queue.`);
+  };
+
+  const removeMergeClip = (id: string) => setMergeClips(current => {
+    const target = current.find(item => item.id === id); if (target) URL.revokeObjectURL(target.url);
+    return current.filter(item => item.id !== id);
+  });
 
   const selectFile = (selected: File | null) => {
     if (!selected) return;
@@ -92,7 +105,10 @@ export default function MediaEditorPage() {
     if (!file.type.startsWith('video/')) { setStatus('Local visual rendering currently requires a video file. Audio projects can still be saved.'); return; }
     setBusy(true); setProgress(0); setStatus('Rendering locally in your browser…');
     try {
-      const blob = await renderVideoLocally({ sourceUrl: previewUrl, start: trimStart, end: trimEnd, aspect: aspectRatio, filter: previewFilter, caption, muted, playbackRate, quality: quality === '720p' ? '720p' : '1080p' }, setProgress);
+      const renderOptions = { sourceUrl: previewUrl, start: trimStart, end: trimEnd, aspect: aspectRatio, filter: previewFilter, caption, muted, playbackRate, quality: quality === '720p' ? '720p' : '1080p' };
+      const blob = mergeClips.length
+        ? await mergeVideoClipsLocally(renderOptions, mergeClips.map(clip => ({ sourceUrl: clip.url })), setProgress)
+        : await renderVideoLocally(renderOptions, setProgress);
       setRenderedBlob(blob); setStatus('Render complete. Download is ready.');
       if (campaignId) {
         const source = await api.uploadCampaignFile(campaignId, file);
@@ -129,6 +145,13 @@ export default function MediaEditorPage() {
         <div className="space-y-3 rounded-xl border border-border bg-slate-50 p-3"><p className="flex items-center gap-2 text-xs font-semibold"><SlidersHorizontal className="h-4 w-4 text-primary" /> Fine adjustments</p>{[['Brightness', brightness, setBrightness], ['Contrast', contrast, setContrast], ['Saturation', saturation, setSaturation]].map(([label, value, setter]: any) => <label key={label} className="block text-[11px] text-muted-foreground"><span className="flex justify-between"><span>{label}</span><span>{value}%</span></span><input type="range" min="50" max="150" value={value} onChange={event => setter(Number(event.target.value))} className="mt-1 w-full" /></label>)}</div>
         <label className="block text-xs font-semibold">Playback speed<select value={playbackRate} onChange={e => setPlaybackRate(Number(e.target.value))} className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2 text-xs"><option value="0.75">0.75×</option><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
         <label className="block text-xs font-semibold"><span className="flex items-center gap-2"><Captions className="h-4 w-4 text-primary" /> Caption overlay</span><textarea rows={3} value={caption} onChange={e => setCaption(e.target.value)} placeholder="Add on-screen caption…" className="mt-1.5 w-full rounded-lg border border-border px-3 py-2 text-xs" /></label>
+        <section className="space-y-2.5 rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-3" aria-label="Clip merge queue">
+          <div className="flex items-start justify-between gap-3"><div><p className="flex items-center gap-2 text-xs font-bold"><Film className="h-4 w-4 text-primary" /> Merge clips</p><p className="mt-0.5 text-[10px] text-muted-foreground">Add up to five parts. They render in this order.</p></div><label className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-primary px-2.5 py-2 text-[10px] font-semibold text-white"><Plus className="h-3.5 w-3.5" /> Add<input type="file" accept="video/*" multiple className="sr-only" onChange={event => { addMergeClips(event.target.files); event.currentTarget.value=''; }} /></label></div>
+          <div className="max-h-32 space-y-1.5 overflow-y-auto">
+            {mergeClips.length ? mergeClips.map((clip, index) => <div key={clip.id} className="flex items-center gap-2 rounded-lg border border-border bg-white px-2 py-1.5"><GripVertical className="h-3.5 w-3.5 shrink-0 text-slate-400" /><span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-blue-100 text-[9px] font-bold text-primary">{index + 2}</span><span className="min-w-0 flex-1 truncate text-[10px] font-medium" title={clip.file.name}>{clip.file.name}</span><button type="button" onClick={() => removeMergeClip(clip.id)} aria-label={`Remove ${clip.file.name}`} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button></div>) : <div className="rounded-lg border border-dashed border-blue-200 bg-white/70 px-3 py-4 text-center text-[10px] text-muted-foreground">Your trimmed main video is clip 1. Add the next part here.</div>}
+          </div>
+          <div className="flex items-center justify-between text-[10px]"><span className="font-medium text-slate-600">{1 + mergeClips.length} total clip{mergeClips.length ? 's' : ''}</span><span className="text-primary">Merged during Render video</span></div>
+        </section>
         <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50/50 p-3"><p className="flex items-center gap-2 text-xs font-semibold"><Mic2 className="h-4 w-4 text-primary" /> AI voice-over</p><textarea rows={3} value={voiceText} onChange={event => setVoiceText(event.target.value)} placeholder="Enter voice-over script…" className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs" /><div className="grid grid-cols-3 gap-2"><select aria-label="Voice language" value={voiceLanguage} onChange={event => setVoiceLanguage(event.target.value)} className="rounded-lg border border-border bg-white p-2 text-[10px]"><option value="en-IN">English IN</option><option value="en-GB">English UK</option><option value="hi-IN">Hindi</option></select><select aria-label="Voice speed" value={voiceRate} onChange={event => setVoiceRate(Number(event.target.value))} className="rounded-lg border border-border bg-white p-2 text-[10px]"><option value="0.85">Calm</option><option value="1">Natural</option><option value="1.15">Energetic</option></select><select aria-label="Voice pitch" value={voicePitch} onChange={event => setVoicePitch(Number(event.target.value))} className="rounded-lg border border-border bg-white p-2 text-[10px]"><option value="0.85">Low</option><option value="1">Natural</option><option value="1.15">Bright</option></select></div><button onClick={previewVoice} className="w-full rounded-lg border border-primary bg-white px-3 py-2 text-xs font-semibold text-primary">Preview voice</button></div>
         <button onClick={() => setMuted(value => !value)} className="flex w-full items-center justify-between rounded-lg border border-border px-3 py-2 text-xs font-semibold"><span>{muted ? 'Audio muted' : 'Audio enabled'}</span>{muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4 text-primary" />}</button>
         {voiceoverUrl ? <a href={voiceoverUrl} target="_blank" rel="noreferrer" className="flex w-full items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-xs font-semibold"><Mic2 className="h-4 w-4 text-primary" /> Open generated voice-over</a> : null}

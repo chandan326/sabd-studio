@@ -119,7 +119,10 @@ def app(environ, start_response):
             # Vercel functions do not run a release command. Applying only
             # pending migrations here makes fresh databases usable and is a
             # no-op on subsequent warm requests.
-            if os.getenv("AUTO_MIGRATE", "true").lower() == "true":
+            # Production schemas are migrated during setup. Running Django's
+            # migration command on every serverless cold start adds seconds to
+            # the first button click, so it is explicitly opt-in.
+            if os.getenv("AUTO_MIGRATE", "false").lower() == "true":
                 _migrate_database_safely()
             _database_ready = True
         except Exception as exc:

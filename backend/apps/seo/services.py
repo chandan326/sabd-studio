@@ -1,4 +1,5 @@
 import re
+from types import SimpleNamespace
 from apps.seo.models import SEOAnalysis
 
 class SEOService:
@@ -102,10 +103,17 @@ class SEOService:
         checks.append({"rule": "platform_optimization", "score": 10, "max_score": 10, "status": "pass", "message": f"Formation verified for target platform '{platform.upper()}'."})
         total_score += 10
 
-        analysis, _ = SEOAnalysis.objects.get_or_create(asset=asset)
-        analysis.overall_score = min(100, total_score)
-        analysis.checks_json = checks
-        analysis.recommendations_json = recommendations
-        analysis.save()
+        if asset.pk:
+            analysis, _ = SEOAnalysis.objects.get_or_create(asset=asset)
+            analysis.overall_score = min(100, total_score)
+            analysis.checks_json = checks
+            analysis.recommendations_json = recommendations
+            analysis.save()
+        else:
+            analysis = SimpleNamespace(
+                overall_score=min(100, total_score),
+                checks_json=checks,
+                recommendations_json=recommendations,
+            )
 
         return analysis
