@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import TrimTimeline from '@/components/TrimTimeline';
 import { downloadMedia, mergeVideoClipsLocally, renderVideoLocally } from '@/lib/media-render';
-import { Captions, Download, Film, FolderCheck, GripVertical, Mic2, Play, Plus, Save, SlidersHorizontal, Trash2, Upload, Volume2, VolumeX } from 'lucide-react';
+import { Captions, Download, Film, FolderCheck, Mic2, Play, Plus, RotateCcw, Save, SlidersHorizontal, Trash2, Upload, Volume2, VolumeX } from 'lucide-react';
 
 const aspectClasses: Record<string, string> = { '16:9': 'aspect-video', '9:16': 'aspect-[9/16]', '1:1': 'aspect-square', '4:5': 'aspect-[4/5]' };
 const filterPresets: Record<string, string> = { none: '', grayscale: 'grayscale(1)', sepia: 'sepia(.8)', cinematic: 'contrast(1.18) saturate(.82)', vivid: 'contrast(1.08) saturate(1.4)', cool: 'hue-rotate(12deg) saturate(1.12)', soft: 'contrast(.92) saturate(.9) brightness(1.08)' };
+type ClipEdit = { duration: number; start: number; end: number; reverse: boolean };
+type QueuedClip = ClipEdit & { id: string; file: File; url: string };
 
 export default function MediaEditorPage() {
   const mediaRef = useRef<HTMLVideoElement>(null);
@@ -33,7 +35,13 @@ export default function MediaEditorPage() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('Choose a video or audio file to begin.');
   const [busy, setBusy] = useState(false);
-  const [mergeClips, setMergeClips] = useState<Array<{ id: string; file: File; url: string }>>([]);
+  const [mainEdit, setMainEdit] = useState<ClipEdit>({ duration: 30, start: 0, end: 30, reverse: false });
+  const [selectedClipId, setSelectedClipId] = useState('main');
+  const [mergeClips, setMergeClips] = useState<QueuedClip[]>([]);
+
+  const selectedQueuedClip = mergeClips.find(clip => clip.id === selectedClipId);
+  const activePreviewUrl = selectedQueuedClip?.url || previewUrl;
+  const selectedReverse = selectedQueuedClip?.reverse ?? mainEdit.reverse;
 
   useEffect(() => { try { const raw = localStorage.getItem('sabd_clip_handoff'); if (!raw) return; const clip = JSON.parse(raw); setTrimStart(Number(clip.start)||0); setTrimEnd(Number(clip.end)||30); setAspectRatio(clip.aspect||'9:16'); setCaption(clip.caption||''); setStatus(`Clip preset “${clip.title||'AI highlight'}” loaded. Upload your authorised original video to render it.`); localStorage.removeItem('sabd_clip_handoff'); } catch {} }, []);
 
@@ -42,29 +50,59 @@ export default function MediaEditorPage() {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
 
-  const addMergeClips = (files: FileList | null) => {
-    if (!files) return;
-    const accepted = Array.from(files).filter(item => item.type.startsWith('video/')).slice(0, Math.max(0, 5 - mergeClips.length));
-    setMergeClips(current => [...current, ...accepted.map(item => ({ id: crypto.randomUUID(), file: item, url: URL.createObjectURL(item) }))]);
-    setRenderedBlob(null); setStatus(`${accepted.length} clip${accepted.length === 1 ? '' : 's'} added to the merge queue.`);
+  const readVideoDuration = (url: string) => new Promise<number>((resolve) => {
+    const probe = document.createElement('video'); probe.preload = 'metadata'; probe.src = url;
+    probe.onloadedmetadata = () => resolve(Math.max(1, Math.floor(probe.duration || 30)));
+    probe.onerror = () => resolve(30);
+  });
+
+  const addMergeClips = async (files: FileList | null) => {
+    if (!files || !file) { setStatus('Upload the first video, then use Merge to add more clips.'); return; }
+    const accepted = Array.from(files).filter(item => item.type.startsWith('video/')).slice(0, Math.max(0, 9 - mergeClips.length));
+    const queued = await Promise.all(accepted.map(async item => {
+      const url = URL.createObjectURL(item); const clipDuration = await readVideoDuration(url);
+      return { id: crypto.randomUUID(), file: item, url, duration: clipDuration, start: 0, end: clipDuration, reverse: false };
+    }));
+    setMergeClips(current => [...current, ...queued]);
+    if (queued[0]) selectQueuedClip(queued[0]);
+    setRenderedBlob(null); setStatus(`${accepted.length} clip${accepted.length === 1 ? '' : 's'} added. Select any clip below to edit it.`);
   };
 
   const removeMergeClip = (id: string) => setMergeClips(current => {
     const target = current.find(item => item.id === id); if (target) URL.revokeObjectURL(target.url);
+    if (selectedClipId === id) selectMainClip();
     return current.filter(item => item.id !== id);
   });
+
+  const selectMainClip = () => { setSelectedClipId('main'); setDuration(mainEdit.duration); setTrimStart(mainEdit.start); setTrimEnd(mainEdit.end); };
+  const selectQueuedClip = (clip: QueuedClip) => { setSelectedClipId(clip.id); setDuration(clip.duration); setTrimStart(clip.start); setTrimEnd(clip.end); };
+
+  const updateSelectedRange = (start: number, end: number) => {
+    setTrimStart(start); setTrimEnd(end); setRenderedBlob(null);
+    if (selectedClipId === 'main') setMainEdit(current => ({ ...current, start, end }));
+    else setMergeClips(current => current.map(clip => clip.id === selectedClipId ? { ...clip, start, end } : clip));
+  };
+
+  const toggleSelectedReverse = () => {
+    if (selectedClipId === 'main') setMainEdit(current => ({ ...current, reverse: !current.reverse }));
+    else setMergeClips(current => current.map(clip => clip.id === selectedClipId ? { ...clip, reverse: !clip.reverse } : clip));
+    setRenderedBlob(null); setStatus(`${selectedReverse ? 'Forward' : 'Reverse'} playback enabled for the selected clip.`);
+  };
 
   const selectFile = (selected: File | null) => {
     if (!selected) return;
     if (!selected.type.startsWith('video/') && !selected.type.startsWith('audio/')) { setStatus('Please choose a supported video or audio file.'); return; }
     if (selected.size > 500 * 1024 * 1024) { setStatus('File must be smaller than 500 MB.'); return; }
     if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setFile(selected); setPreviewUrl(URL.createObjectURL(selected)); setRenderedBlob(null); setStatus(`${selected.name} ready for editing.`);
+    setFile(selected); setPreviewUrl(URL.createObjectURL(selected)); setSelectedClipId('main'); setMainEdit({ duration: 30, start: 0, end: 30, reverse: false }); setDuration(30); setTrimStart(0); setTrimEnd(30); setRenderedBlob(null); setStatus(`${selected.name} ready. Use Merge to add up to 9 more clips.`);
   };
 
   const syncDuration = () => {
     const value = Math.max(1, Math.floor(mediaRef.current?.duration || 30));
-    setDuration(value); setTrimStart(current => Math.min(current, Math.max(0,value-.1))); setTrimEnd(current => Math.min(current || value,value));
+    setDuration(value);
+    if (selectedClipId === 'main') {
+      setMainEdit(current => { const next = { ...current, duration: value, start: Math.min(current.start, Math.max(0, value - .1)), end: current.duration === 30 && current.end === 30 ? value : Math.min(current.end, value) }; setTrimStart(next.start); setTrimEnd(next.end); return next; });
+    }
   };
 
   const previewTrim = () => {
@@ -88,19 +126,19 @@ export default function MediaEditorPage() {
 
   const saveProject = () => {
     if (!file) { setStatus('Choose a media file first.'); return; }
-    localStorage.setItem('sabd_media_project', JSON.stringify({ source: file.name, edits, merge_clips: mergeClips.map(clip => clip.file.name), savedAt: new Date().toISOString() }));
+    localStorage.setItem('sabd_media_project', JSON.stringify({ source: file.name, edits, main_edit: mainEdit, merge_clips: mergeClips.map(clip => ({ name: clip.file.name, start: clip.start, end: clip.end, reverse: clip.reverse })), savedAt: new Date().toISOString() }));
     setStatus('Project settings saved in this browser.');
   };
 
   const saveRender = async () => {
     if (!file) { setStatus('Choose a media file first.'); return; }
-    if (trimEnd <= trimStart) { setStatus('Trim end must be after trim start.'); return; }
+    if (mainEdit.end <= mainEdit.start || mergeClips.some(clip => clip.end <= clip.start)) { setStatus('Every clip must have an end time after its start time.'); return; }
     if (!file.type.startsWith('video/')) { setStatus('Local visual rendering currently requires a video file. Audio projects can still be saved.'); return; }
     setBusy(true); setProgress(0); setStatus('Rendering locally in your browser…');
     try {
-      const renderOptions = { sourceUrl: previewUrl, start: trimStart, end: trimEnd, aspect: aspectRatio, filter: previewFilter, caption, muted, playbackRate, quality: quality === '720p' ? '720p' : '1080p' };
-      const blob = mergeClips.length
-        ? await mergeVideoClipsLocally(renderOptions, mergeClips.map(clip => ({ sourceUrl: clip.url })), setProgress)
+      const renderOptions = { sourceUrl: previewUrl, start: mainEdit.start, end: mainEdit.end, reverse: mainEdit.reverse, aspect: aspectRatio, filter: previewFilter, caption, muted, playbackRate, quality };
+      const blob = mergeClips.length || mainEdit.reverse
+        ? await mergeVideoClipsLocally(renderOptions, mergeClips.map(clip => ({ sourceUrl: clip.url, start: clip.start, end: clip.end, reverse: clip.reverse })), setProgress)
         : await renderVideoLocally(renderOptions, setProgress);
       setRenderedBlob(blob); setStatus('Render complete. Download is ready.');
     } catch (error: any) { setStatus(error.message || 'Media render failed.'); }
@@ -108,7 +146,7 @@ export default function MediaEditorPage() {
   };
 
   const downloadRecipe = () => {
-    const blob = new Blob([JSON.stringify({ source: file?.name, edits, merge_clips: mergeClips.map(clip => clip.file.name) }, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ source: file?.name, edits, main_edit: mainEdit, merge_clips: mergeClips.map(clip => ({ name: clip.file.name, start: clip.start, end: clip.end, reverse: clip.reverse })) }, null, 2)], { type: 'application/json' });
     const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'sabd-studio-edit.json'; link.click(); URL.revokeObjectURL(link.href);
   };
 
@@ -118,19 +156,19 @@ export default function MediaEditorPage() {
       <div className="space-y-4">
       <section className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
         {!previewUrl ? <label className="grid min-h-80 cursor-pointer place-items-center rounded-xl border-2 border-dashed border-blue-200 bg-blue-50/60 text-center hover:bg-blue-50"><span><Upload className="mx-auto h-9 w-9 text-primary" /><strong className="mt-3 block text-sm">Upload video or audio</strong><span className="mt-1 block text-xs text-muted-foreground">MP4, WebM, MOV, MP3, WAV · up to 500 MB</span></span><input className="sr-only" type="file" accept="video/*,audio/*" onChange={(event) => selectFile(event.target.files?.[0] || null)} /></label> : <div className="space-y-4">
-          <div className={`relative mx-auto max-h-[560px] overflow-hidden rounded-xl bg-black ${aspectClasses[aspectRatio]}`}><video ref={mediaRef} src={previewUrl} controls muted={muted} onLoadedMetadata={syncDuration} onTimeUpdate={() => { if (mediaRef.current && mediaRef.current.currentTime >= trimEnd) mediaRef.current.pause(); }} style={{ filter: previewFilter }} className="h-full w-full object-cover" />{caption ? <div className="pointer-events-none absolute inset-x-4 bottom-12 text-center"><span className="rounded bg-black/75 px-3 py-1.5 text-sm font-semibold text-white">{caption}</span></div> : null}</div>
+          <div className={`relative mx-auto max-h-[560px] overflow-hidden rounded-xl bg-black ${aspectClasses[aspectRatio]}`}><video ref={mediaRef} src={activePreviewUrl} controls muted={muted} onLoadedMetadata={syncDuration} onTimeUpdate={() => { if (mediaRef.current && mediaRef.current.currentTime >= trimEnd) mediaRef.current.pause(); }} style={{ filter: previewFilter }} className="h-full w-full object-cover" />{caption ? <div className="pointer-events-none absolute inset-x-4 bottom-12 text-center"><span className="rounded bg-black/75 px-3 py-1.5 text-sm font-semibold text-white">{caption}</span></div> : null}</div>
           <button onClick={previewTrim} className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-xs font-semibold hover:bg-slate-50"><Play className="h-4 w-4" /> Preview selection</button>
         </div>}
-        <p role="status" className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">{status}</p>
-      </section>
-      <TrimTimeline compact duration={duration} start={trimStart} end={trimEnd} disabled={!file} onChange={(start, end) => { setTrimStart(start); setTrimEnd(end); setRenderedBlob(null); }} onPreview={previewTrim} />
-      <section className="space-y-2.5 rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm" aria-label="Clip merge queue">
-        <div className="flex items-center justify-between gap-3"><div><p className="flex items-center gap-2 text-xs font-bold"><Film className="h-4 w-4 text-primary" /> Merge clips</p><p className="mt-0.5 text-[10px] text-muted-foreground">Add up to five parts. They render after the trimmed main clip.</p></div><label className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-primary px-3 py-2 text-[10px] font-semibold text-white"><Plus className="h-3.5 w-3.5" /> Add clips<input type="file" accept="video/*" multiple className="sr-only" onChange={event => { addMergeClips(event.target.files); event.currentTarget.value=''; }} /></label></div>
-        <div className="max-h-24 space-y-1.5 overflow-y-auto">
-          {mergeClips.length ? mergeClips.map((clip, index) => <div key={clip.id} className="flex items-center gap-2 rounded-lg border border-border bg-white px-2 py-1.5"><GripVertical className="h-3.5 w-3.5 shrink-0 text-slate-400" /><span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-blue-100 text-[9px] font-bold text-primary">{index + 2}</span><span className="min-w-0 flex-1 truncate text-[10px] font-medium" title={clip.file.name}>{clip.file.name}</span><button type="button" onClick={() => removeMergeClip(clip.id)} aria-label={`Remove ${clip.file.name}`} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button></div>) : <div className="rounded-lg border border-dashed border-blue-200 bg-white/70 px-3 py-3 text-center text-[10px] text-muted-foreground">Main trim is clip 1 — add the next clip here.</div>}
+        <div className="space-y-2 rounded-xl border border-blue-100 bg-blue-50 p-3">
+          <div className="flex items-center justify-between gap-3"><p role="status" className="min-w-0 truncate text-[11px] text-blue-800">{status}</p><label className={`inline-flex shrink-0 items-center gap-1 rounded-lg bg-primary px-3 py-2 text-[10px] font-semibold text-white ${file && mergeClips.length < 9 ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}><Plus className="h-3.5 w-3.5" /> Merge<input type="file" accept="video/*" multiple disabled={!file || mergeClips.length >= 9} className="sr-only" onChange={event => { void addMergeClips(event.target.files); event.currentTarget.value=''; }} /></label></div>
+          {file ? <div className="flex gap-1.5 overflow-x-auto pb-1">
+            <button type="button" onClick={selectMainClip} className={`min-w-28 rounded-lg border px-2.5 py-2 text-left ${selectedClipId === 'main' ? 'border-primary bg-white ring-1 ring-primary' : 'border-blue-100 bg-white/70'}`}><span className="block text-[9px] font-bold text-primary">01 · MAIN</span><span className="block truncate text-[10px] font-medium" title={file.name}>{file.name}</span>{mainEdit.reverse ? <span className="text-[9px] text-violet-600">Reversed</span> : null}</button>
+            {mergeClips.map((clip, index) => <button key={clip.id} type="button" onClick={() => selectQueuedClip(clip)} className={`group relative min-w-28 rounded-lg border px-2.5 py-2 text-left ${selectedClipId === clip.id ? 'border-primary bg-white ring-1 ring-primary' : 'border-blue-100 bg-white/70'}`}><span className="block text-[9px] font-bold text-primary">{String(index + 2).padStart(2, '0')} · CLIP</span><span className="block truncate pr-4 text-[10px] font-medium" title={clip.file.name}>{clip.file.name}</span>{clip.reverse ? <span className="text-[9px] text-violet-600">Reversed</span> : null}<span onClick={event => { event.stopPropagation(); removeMergeClip(clip.id); }} role="button" aria-label={`Remove ${clip.file.name}`} className="absolute right-1.5 top-1.5 rounded p-0.5 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3 w-3" /></span></button>)}
+          </div> : null}
+          {file ? <div className="flex items-center justify-between text-[10px] text-slate-600"><span>Editing clip {selectedClipId === 'main' ? 1 : mergeClips.findIndex(clip => clip.id === selectedClipId) + 2} of {mergeClips.length + 1} · max 10</span><button type="button" onClick={toggleSelectedReverse} className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 font-semibold ${selectedReverse ? 'border-violet-300 bg-violet-50 text-violet-700' : 'border-blue-200 bg-white text-primary'}`}><RotateCcw className="h-3 w-3" /> {selectedReverse ? 'Undo reverse' : 'Reverse clip'}</button></div> : null}
         </div>
-        <div className="flex items-center justify-between text-[10px]"><span className="font-medium text-slate-600">{1 + mergeClips.length} total clip{mergeClips.length ? 's' : ''}</span><span className="text-primary">Merged on render</span></div>
       </section>
+      <TrimTimeline compact duration={duration} start={trimStart} end={trimEnd} disabled={!file} onChange={updateSelectedRange} onPreview={previewTrim} />
       <section className="rounded-2xl border border-border bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-end gap-3">
           <div><p className="mb-1.5 text-[11px] font-semibold">Canvas</p><div className="flex gap-1.5">{Object.keys(aspectClasses).map(value => <button key={value} onClick={() => setAspectRatio(value)} className={`rounded-lg border px-3 py-2 text-[11px] font-semibold ${aspectRatio === value ? 'border-primary bg-blue-50 text-primary' : 'border-border'}`}>{value}</button>)}</div></div>
