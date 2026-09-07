@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
 import TrimTimeline from '@/components/TrimTimeline';
 import { downloadMedia, mergeVideoClipsLocally, renderVideoLocally } from '@/lib/media-render';
 import { Captions, Download, Film, FolderCheck, GripVertical, Mic2, Play, Plus, Save, SlidersHorizontal, Trash2, Upload, Volume2, VolumeX } from 'lucide-react';
@@ -15,7 +13,6 @@ export default function MediaEditorPage() {
   const previewTimerRef = useRef<number | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState('');
-  const [campaignId, setCampaignId] = useState('');
   const [duration, setDuration] = useState(30);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(30);
@@ -32,15 +29,11 @@ export default function MediaEditorPage() {
   const [voiceRate, setVoiceRate] = useState(1);
   const [voicePitch, setVoicePitch] = useState(1);
   const [quality, setQuality] = useState('1080p');
-  const [renderUrl, setRenderUrl] = useState('');
-  const [voiceoverUrl, setVoiceoverUrl] = useState('');
   const [renderedBlob, setRenderedBlob] = useState<Blob | null>(null);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('Choose a video or audio file to begin.');
   const [busy, setBusy] = useState(false);
   const [mergeClips, setMergeClips] = useState<Array<{ id: string; file: File; url: string }>>([]);
-
-  const { data: campaigns = [] } = useQuery({ queryKey: ['campaigns'], queryFn: () => api.getCampaigns(), staleTime: 5 * 60 * 1000, retry: 1 });
 
   useEffect(() => { try { const raw = localStorage.getItem('sabd_clip_handoff'); if (!raw) return; const clip = JSON.parse(raw); setTrimStart(Number(clip.start)||0); setTrimEnd(Number(clip.end)||30); setAspectRatio(clip.aspect||'9:16'); setCaption(clip.caption||''); setStatus(`Clip preset “${clip.title||'AI highlight'}” loaded. Upload your authorised original video to render it.`); localStorage.removeItem('sabd_clip_handoff'); } catch {} }, []);
 
@@ -66,7 +59,7 @@ export default function MediaEditorPage() {
     if (!selected.type.startsWith('video/') && !selected.type.startsWith('audio/')) { setStatus('Please choose a supported video or audio file.'); return; }
     if (selected.size > 500 * 1024 * 1024) { setStatus('File must be smaller than 500 MB.'); return; }
     if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setFile(selected); setPreviewUrl(URL.createObjectURL(selected)); setRenderUrl(''); setRenderedBlob(null); setStatus(`${selected.name} ready for editing.`);
+    setFile(selected); setPreviewUrl(URL.createObjectURL(selected)); setRenderedBlob(null); setStatus(`${selected.name} ready for editing.`);
   };
 
   const syncDuration = () => {
@@ -95,7 +88,7 @@ export default function MediaEditorPage() {
 
   const saveProject = () => {
     if (!file) { setStatus('Choose a media file first.'); return; }
-    localStorage.setItem('sabd_media_project', JSON.stringify({ source: file.name, campaignId, edits, savedAt: new Date().toISOString() }));
+    localStorage.setItem('sabd_media_project', JSON.stringify({ source: file.name, edits, merge_clips: mergeClips.map(clip => clip.file.name), savedAt: new Date().toISOString() }));
     setStatus('Project settings saved in this browser.');
   };
 
@@ -110,17 +103,12 @@ export default function MediaEditorPage() {
         ? await mergeVideoClipsLocally(renderOptions, mergeClips.map(clip => ({ sourceUrl: clip.url })), setProgress)
         : await renderVideoLocally(renderOptions, setProgress);
       setRenderedBlob(blob); setStatus('Render complete. Download is ready.');
-      if (campaignId) {
-        const source = await api.uploadCampaignFile(campaignId, file);
-        const result = await api.renderCampaignMedia(campaignId, { source_asset_id: source.id, edits });
-        setRenderUrl(result.render_url || ''); setVoiceoverUrl(result.voiceover_url || '');
-      }
     } catch (error: any) { setStatus(error.message || 'Media render failed.'); }
     finally { setBusy(false); }
   };
 
   const downloadRecipe = () => {
-    const blob = new Blob([JSON.stringify({ source: file?.name, campaign_id: campaignId, edits }, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ source: file?.name, edits, merge_clips: mergeClips.map(clip => clip.file.name) }, null, 2)], { type: 'application/json' });
     const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'sabd-studio-edit.json'; link.click(); URL.revokeObjectURL(link.href);
   };
 
@@ -136,31 +124,34 @@ export default function MediaEditorPage() {
         <p role="status" className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">{status}</p>
       </section>
       <TrimTimeline compact duration={duration} start={trimStart} end={trimEnd} disabled={!file} onChange={(start, end) => { setTrimStart(start); setTrimEnd(end); setRenderedBlob(null); }} onPreview={previewTrim} />
+      <section className="space-y-2.5 rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm" aria-label="Clip merge queue">
+        <div className="flex items-center justify-between gap-3"><div><p className="flex items-center gap-2 text-xs font-bold"><Film className="h-4 w-4 text-primary" /> Merge clips</p><p className="mt-0.5 text-[10px] text-muted-foreground">Add up to five parts. They render after the trimmed main clip.</p></div><label className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-primary px-3 py-2 text-[10px] font-semibold text-white"><Plus className="h-3.5 w-3.5" /> Add clips<input type="file" accept="video/*" multiple className="sr-only" onChange={event => { addMergeClips(event.target.files); event.currentTarget.value=''; }} /></label></div>
+        <div className="max-h-24 space-y-1.5 overflow-y-auto">
+          {mergeClips.length ? mergeClips.map((clip, index) => <div key={clip.id} className="flex items-center gap-2 rounded-lg border border-border bg-white px-2 py-1.5"><GripVertical className="h-3.5 w-3.5 shrink-0 text-slate-400" /><span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-blue-100 text-[9px] font-bold text-primary">{index + 2}</span><span className="min-w-0 flex-1 truncate text-[10px] font-medium" title={clip.file.name}>{clip.file.name}</span><button type="button" onClick={() => removeMergeClip(clip.id)} aria-label={`Remove ${clip.file.name}`} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button></div>) : <div className="rounded-lg border border-dashed border-blue-200 bg-white/70 px-3 py-3 text-center text-[10px] text-muted-foreground">Main trim is clip 1 — add the next clip here.</div>}
+        </div>
+        <div className="flex items-center justify-between text-[10px]"><span className="font-medium text-slate-600">{1 + mergeClips.length} total clip{mergeClips.length ? 's' : ''}</span><span className="text-primary">Merged on render</span></div>
+      </section>
+      <section className="rounded-2xl border border-border bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-end gap-3">
+          <div><p className="mb-1.5 text-[11px] font-semibold">Canvas</p><div className="flex gap-1.5">{Object.keys(aspectClasses).map(value => <button key={value} onClick={() => setAspectRatio(value)} className={`rounded-lg border px-3 py-2 text-[11px] font-semibold ${aspectRatio === value ? 'border-primary bg-blue-50 text-primary' : 'border-border'}`}>{value}</button>)}</div></div>
+          <label className="text-[11px] font-semibold">Quality<select value={quality} onChange={event => setQuality(event.target.value)} className="mt-1.5 block rounded-lg border border-border bg-white px-3 py-2 text-[11px]"><option value="720p">HD 720p</option><option value="1080p">Full HD 1080p</option><option value="1440p">2K cloud</option><option value="2160p">4K cloud</option></select></label>
+          <div className="ml-auto flex flex-wrap gap-2"><button disabled={!file} onClick={saveProject} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[11px] font-semibold disabled:opacity-50"><FolderCheck className="h-4 w-4" /> Save</button><button disabled={busy || !file} onClick={saveRender} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-[11px] font-semibold text-white disabled:opacity-50"><Save className="h-4 w-4" />{busy ? `${progress}%` : 'Render'}</button><button disabled={!renderedBlob} onClick={() => renderedBlob && downloadMedia(renderedBlob, `${file?.name.replace(/\.[^.]+$/, '') || 'video'}-edited.webm`)} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-[11px] font-semibold text-white disabled:opacity-40"><Download className="h-4 w-4" /> Download</button><button disabled={!file} onClick={downloadRecipe} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[11px] font-semibold disabled:opacity-50"><Download className="h-4 w-4" /> Recipe</button></div>
+        </div>
+      </section>
       </div>
 
       <div className="space-y-4">
       <aside className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
-        <div><p className="text-sm font-bold">Editing controls</p><p className="text-[11px] text-muted-foreground">Changes appear instantly in the preview.</p></div>
-        <label className="block text-xs font-semibold">Campaign<select value={campaignId} onChange={e => setCampaignId(e.target.value)} className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2 text-xs"><option value="">Choose campaign</option>{campaigns.map((item: any) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <label className="block text-xs font-semibold">Visual filter<select value={filter} onChange={e => setFilter(e.target.value)} className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2 text-xs">{Object.keys(filterPresets).map(value => <option key={value} value={value}>{value[0].toUpperCase() + value.slice(1)}</option>)}</select></label>
         <div className="space-y-3 rounded-xl border border-border bg-slate-50 p-3"><p className="flex items-center gap-2 text-xs font-semibold"><SlidersHorizontal className="h-4 w-4 text-primary" /> Fine adjustments</p>{[['Brightness', brightness, setBrightness], ['Contrast', contrast, setContrast], ['Saturation', saturation, setSaturation]].map(([label, value, setter]: any) => <label key={label} className="block text-[11px] text-muted-foreground"><span className="flex justify-between"><span>{label}</span><span>{value}%</span></span><input type="range" min="50" max="150" value={value} onChange={event => setter(Number(event.target.value))} className="mt-1 w-full" /></label>)}</div>
         <label className="block text-xs font-semibold">Playback speed<select value={playbackRate} onChange={e => setPlaybackRate(Number(e.target.value))} className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2 text-xs"><option value="0.75">0.75×</option><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
         <label className="block text-xs font-semibold"><span className="flex items-center gap-2"><Captions className="h-4 w-4 text-primary" /> Caption overlay</span><textarea rows={3} value={caption} onChange={e => setCaption(e.target.value)} placeholder="Add on-screen caption…" className="mt-1.5 w-full rounded-lg border border-border px-3 py-2 text-xs" /></label>
       </aside>
-        <section className="space-y-2.5 rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm" aria-label="Clip merge queue">
-          <div className="flex items-start justify-between gap-3"><div><p className="flex items-center gap-2 text-xs font-bold"><Film className="h-4 w-4 text-primary" /> Merge clips</p><p className="mt-0.5 text-[10px] text-muted-foreground">Add up to five parts. They render in this order.</p></div><label className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-primary px-2.5 py-2 text-[10px] font-semibold text-white"><Plus className="h-3.5 w-3.5" /> Add<input type="file" accept="video/*" multiple className="sr-only" onChange={event => { addMergeClips(event.target.files); event.currentTarget.value=''; }} /></label></div>
-          <div className="max-h-32 space-y-1.5 overflow-y-auto">
-            {mergeClips.length ? mergeClips.map((clip, index) => <div key={clip.id} className="flex items-center gap-2 rounded-lg border border-border bg-white px-2 py-1.5"><GripVertical className="h-3.5 w-3.5 shrink-0 text-slate-400" /><span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-blue-100 text-[9px] font-bold text-primary">{index + 2}</span><span className="min-w-0 flex-1 truncate text-[10px] font-medium" title={clip.file.name}>{clip.file.name}</span><button type="button" onClick={() => removeMergeClip(clip.id)} aria-label={`Remove ${clip.file.name}`} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button></div>) : <div className="rounded-lg border border-dashed border-blue-200 bg-white/70 px-3 py-4 text-center text-[10px] text-muted-foreground">Your trimmed main video is clip 1. Add the next part here.</div>}
-          </div>
-          <div className="flex items-center justify-between text-[10px]"><span className="font-medium text-slate-600">{1 + mergeClips.length} total clip{mergeClips.length ? 's' : ''}</span><span className="text-primary">Merged during Render video</span></div>
-        </section>
       <aside className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
         <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50/50 p-3"><p className="flex items-center gap-2 text-xs font-semibold"><Mic2 className="h-4 w-4 text-primary" /> AI voice-over</p><textarea rows={3} value={voiceText} onChange={event => setVoiceText(event.target.value)} placeholder="Enter voice-over script…" className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs" /><div className="grid grid-cols-3 gap-2"><select aria-label="Voice language" value={voiceLanguage} onChange={event => setVoiceLanguage(event.target.value)} className="rounded-lg border border-border bg-white p-2 text-[10px]"><option value="en-IN">English IN</option><option value="en-GB">English UK</option><option value="hi-IN">Hindi</option></select><select aria-label="Voice speed" value={voiceRate} onChange={event => setVoiceRate(Number(event.target.value))} className="rounded-lg border border-border bg-white p-2 text-[10px]"><option value="0.85">Calm</option><option value="1">Natural</option><option value="1.15">Energetic</option></select><select aria-label="Voice pitch" value={voicePitch} onChange={event => setVoicePitch(Number(event.target.value))} className="rounded-lg border border-border bg-white p-2 text-[10px]"><option value="0.85">Low</option><option value="1">Natural</option><option value="1.15">Bright</option></select></div><button onClick={previewVoice} className="w-full rounded-lg border border-primary bg-white px-3 py-2 text-xs font-semibold text-primary">Preview voice</button></div>
         <button onClick={() => setMuted(value => !value)} className="flex w-full items-center justify-between rounded-lg border border-border px-3 py-2 text-xs font-semibold"><span>{muted ? 'Audio muted' : 'Audio enabled'}</span>{muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4 text-primary" />}</button>
-        {voiceoverUrl ? <a href={voiceoverUrl} target="_blank" rel="noreferrer" className="flex w-full items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-xs font-semibold"><Mic2 className="h-4 w-4 text-primary" /> Open generated voice-over</a> : null}
       </aside>
       </div>
     </div>
-    <section className="sticky bottom-3 z-20 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur"><div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between"><div className="flex-1"><p className="mb-2 text-xs font-semibold">Output canvas</p><div className="flex flex-wrap gap-2">{Object.keys(aspectClasses).map(value => <button key={value} onClick={() => setAspectRatio(value)} className={`rounded-lg border px-4 py-2 text-xs font-semibold ${aspectRatio === value ? 'border-primary bg-blue-50 text-primary' : 'border-border'}`}>{value}</button>)}</div></div><label className="text-xs font-semibold">Quality<select value={quality} onChange={event => setQuality(event.target.value)} className="mt-1 block rounded-lg border border-border bg-white px-3 py-2 text-xs"><option value="720p">HD 720p</option><option value="1080p">Full HD 1080p</option><option value="1440p">2K cloud</option><option value="2160p">4K cloud</option></select></label><div className="flex flex-wrap gap-2"><button disabled={!file} onClick={saveProject} className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-xs font-semibold disabled:opacity-50"><FolderCheck className="h-4 w-4" /> Save project</button><button disabled={busy || !file} onClick={saveRender} className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-xs font-semibold text-white disabled:opacity-50"><Save className="h-4 w-4" />{busy ? `Rendering ${progress}%` : 'Render video'}</button><button disabled={!renderedBlob} onClick={() => renderedBlob && downloadMedia(renderedBlob, `${file?.name.replace(/\.[^.]+$/, '') || 'video'}-edited.webm`)} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-5 py-2.5 text-xs font-semibold text-white disabled:opacity-40"><Download className="h-4 w-4" /> Download video</button><button disabled={!file} onClick={downloadRecipe} className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-xs font-semibold disabled:opacity-50"><Download className="h-4 w-4" /> Recipe</button></div></div>{renderUrl ? <a href={renderUrl} target="_blank" rel="noreferrer" className="mt-3 inline-block text-xs font-semibold text-primary">Open cloud render →</a> : null}</section>
   </div>;
 }
