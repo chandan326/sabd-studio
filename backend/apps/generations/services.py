@@ -49,8 +49,11 @@ Each item must contain: start, end, score (0-100), title, hook, reason.
 Never exceed the video duration. Transcript:\n{transcript[:20000]}''',
                     gemini_key,
                 )
-                if isinstance(result.get('highlights'), list):
-                    return result['highlights'][:6]
+                # Gemini may legally return the requested array directly even
+                # when the prompt asks for an object wrapper.
+                highlights = result if isinstance(result, list) else result.get('highlights', [])
+                if isinstance(highlights, list):
+                    return highlights[:6]
             except Exception as exc:
                 logger.warning('Gemini highlight fallback: %s', exc)
 
@@ -113,7 +116,12 @@ Input:\n{topic_or_text[:20000]}
 
 Return only JSON with this structure:
 {{"summary":"string","assets":[{{"platform":"string","asset_type":"string","title":"string","content":"string","metadata":{{"titles":["string"],"keywords":["string"],"tags":["string"],"timestamps":["string"],"pinned_comment":"string","thumbnail_prompts":["string"],"ctas":["string"],"short_ideas":["string"]}}}}]}}'''
-        return LLMProviderService._generate_gemini_json(prompt, api_key)
+        result = LLMProviderService._generate_gemini_json(prompt, api_key)
+        if isinstance(result, list):
+            return {'summary': topic_or_text[:240], 'assets': result}
+        if not isinstance(result, dict) or not isinstance(result.get('assets'), list):
+            raise ValueError('Gemini returned an unexpected content-package shape.')
+        return result
 
     @staticmethod
     def _generate_openai(topic_or_text, target_platforms, brand_profile, api_key):
